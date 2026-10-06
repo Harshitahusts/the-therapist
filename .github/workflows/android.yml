@@ -1,0 +1,52 @@
+name: Android
+
+on:
+  push:
+    paths: ["android/**", ".github/workflows/android.yml"]
+    tags: ["v*"]
+  pull_request:
+    paths: ["android/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    env:
+      # Public client configuration (set as repository *variables*, not secrets).
+      HAVEN_BACKEND_URL: ${{ vars.HAVEN_BACKEND_URL }}
+      HAVEN_SUPABASE_URL: ${{ vars.HAVEN_SUPABASE_URL }}
+      HAVEN_SUPABASE_ANON_KEY: ${{ vars.HAVEN_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests
+        run: ./gradlew --no-daemon testDebugUnitTest
+      - name: Build debug APK
+        run: ./gradlew --no-daemon assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: haven-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+
+      - name: Build signed release APK
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          KEYSTORE_BASE64: ${{ secrets.HAVEN_KEYSTORE_BASE64 }}
+          HAVEN_KEYSTORE_PASSWORD: ${{ secrets.HAVEN_KEYSTORE_PASSWORD }}
+          HAVEN_KEY_ALIAS: ${{ secrets.HAVEN_KEY_ALIAS }}
+          HAVEN_KEY_PASSWORD: ${{ secrets.HAVEN_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          HAVEN_KEYSTORE_FILE="$RUNNER_TEMP/release.jks" ./gradlew --no-daemon assembleRelease
+      - uses: actions/upload-artifact@v4
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          name: haven-release-apk
+          path: android/app/build/outputs/apk/release/*.apk
