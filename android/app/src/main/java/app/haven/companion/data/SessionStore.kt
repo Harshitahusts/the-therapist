@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
+import androidx.security.crypto.MasterKeys
 
 /**
  * Small encrypted key-value store for auth tokens and local, pre-account
@@ -13,7 +13,7 @@ import androidx.security.crypto.MasterKey
 class SessionStore(context: Context) {
 
     private val prefs: SharedPreferences = run {
-        val key = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
+        val key = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
         try {
             create(context, key)
         } catch (e: Exception) {
@@ -24,10 +24,10 @@ class SessionStore(context: Context) {
         }
     }
 
-    private fun create(context: Context, key: MasterKey) = EncryptedSharedPreferences.create(
-        context,
+    private fun create(context: Context, keyAlias: String) = EncryptedSharedPreferences.create(
         FILE,
-        key,
+        keyAlias,
+        context,
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
     )
