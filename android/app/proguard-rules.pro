@@ -1,7 +1,3 @@
-# WebRTC uses JNI callbacks into these classes.
--keep class org.webrtc.** { *; }
--dontwarn org.webrtc.**
-
 # kotlinx.serialization
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.**

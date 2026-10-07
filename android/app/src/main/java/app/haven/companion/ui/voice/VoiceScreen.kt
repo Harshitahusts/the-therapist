@@ -42,7 +42,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.haven.companion.ui.components.CrisisCard
 import app.haven.companion.ui.components.VoiceOrb
-import app.haven.companion.voice.VoicePhase
+import app.haven.companion.core.VoicePhase
 import app.haven.companion.voice.VoiceSessionController
 import java.time.LocalTime
 

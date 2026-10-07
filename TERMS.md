@@ -1,6 +1,6 @@
 # Terms of Use and Disclaimer
 
-_Last updated: 6 October 2026_
+_Last updated: 7 October 2026_
 
 ## What Haven is
 
@@ -40,8 +40,9 @@ abuse the services it depends on.
 
 ## Third-party services
 
-Haven relies on third-party services (OpenAI, Supabase and a hosting
-provider), which have their own terms. Availability depends on them.
+Haven relies on Google's Gemini API, used with your own API key under
+Google's terms (including the Gemini API Additional Terms). Availability,
+limits and data handling on Google's side depend on Google.
 
 ## No warranty; limitation of liability
 

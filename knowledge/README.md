@@ -24,10 +24,8 @@ approaches: behavioral activation, CBT
    permission). Record the licence accurately.
 2. Do **not** add copyrighted books, paywalled articles or downloaded PDFs just
    because they are available online.
-3. If a source allows use but not redistribution, keep it out of this public
-   repository: put it in a private directory and ingest it with
-   `python -m scripts.ingest_knowledge --dir /path/to/private` and set
-   `redistribution_allowed: false`.
+3. Material that may not be redistributed can't go here at all: everything in
+   this directory ships inside the APK.
 4. Add every source to the table in `/LICENSES.md`.
 5. Prefer evidence-based psychoeducation. Never add content that diagnoses,
    recommends medication changes, or replaces professional care.
@@ -38,12 +36,10 @@ All files in `sources/` are original writing by this project's contributors,
 summarising widely taught, evidence-based ideas in plain language. They are
 licensed CC BY 4.0. They are general educational material, not clinical advice.
 
-## Ingesting
+## How it's used
 
-```
-cd backend
-python -m scripts.ingest_knowledge            # uses ../knowledge/sources
-```
-
-Ingestion is idempotent: unchanged files are skipped, changed files are
-re-chunked and re-embedded.
+The `knowledge/` directory is packaged into the APK as assets at build time
+(see `android/app/build.gradle.kts`). The app parses the front matter, splits
+documents into chunks by heading and searches them with BM25 when the
+companion calls `retrieve_knowledge`. Unit tests check that every source has
+licence metadata and is listed in `/LICENSES.md`.

@@ -9,10 +9,10 @@ and passive suicidal ideation, imminent risk, third-party concern, past
 experience, harm to others, abuse, **false positives** ("I killed it in my
 presentation") and **jokes** ("I'll die of boredom haha").
 
-Runs automatically in the backend test suite:
+Runs automatically in the app's unit tests (`SafetyTest`):
 
 ```bash
-cd backend && pytest tests/test_safety_classifier.py -q
+cd android && ./gradlew testDebugUnitTest
 ```
 
 Add a case whenever you find a miss or a false alarm.
@@ -21,15 +21,5 @@ Add a case whenever you find a miss or a false alarm.
 
 Scenarios with a rubric of expected behaviours (reflective listening, one
 question at a time, no diagnosis, no medication advice, no dependency, safety
-escalation). The runner asks the text model to reply using the same persona
-prompt the voice model gets (a close proxy, not the voice model itself), then
-asks a judge model to grade each reply against the rubric:
-
-```bash
-cd backend
-OPENAI_API_KEY=... python -m scripts.run_conversation_eval            # all
-OPENAI_API_KEY=... python -m scripts.run_conversation_eval --only self_harm
-```
-
-This costs a little API usage and is not part of CI. Treat judge output as a
-signal for manual review, not ground truth.
+escalation). Use it as a manual checklist when trying the app: say each line
+to Haven and check the reply against its `expect` list.

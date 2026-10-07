@@ -1,92 +1,85 @@
 # Privacy Policy
 
-_Last updated: 6 October 2026_
+_Last updated: 7 October 2026_
 
 Haven is a personal, non-profit project: an AI wellbeing and self-reflection
-companion for Android. This policy explains what data the app handles, why,
-and how you control it. If you self-host Haven, you are the operator of your
-deployment and this policy describes how the software behaves.
+companion for Android. It has **no server and no account**. This policy
+explains what data the app handles, where it goes, and how you control it.
 
 ## Summary
 
-- Your **voice** is streamed to OpenAI to power the conversation. Haven does
-  **not** record or store audio.
-- **Full transcripts are not stored.** At the end of a conversation the
-  transcript is used once to write a short summary and extract a few useful
-  facts (only if memory is on), and is then discarded.
-- With **memory on**, Haven stores short conversation summaries and long-term
-  memories so it can remember context. With memory off, it stores neither.
-- You can **view, delete and export** everything, and delete your account.
+- Everything Haven stores is kept **only on your phone**, encrypted.
+- To hold a conversation, your **voice** and the companion's context are sent
+  to **Google's Gemini API** using **your own API key**.
+- **On Gemini's free tier, Google may use what you send to improve its
+  products, and human reviewers may read it.** Avoid sharing details you
+  wouldn't want reviewed.
+- Haven does **not** record audio and does **not** store full transcripts.
+- You can **view, delete and export** everything at any time.
 
-## What we collect and why
+## What is stored on your phone
 
-| Data | Why | Where it is stored |
-| --- | --- | --- |
-| Email address and login credentials | To create your account and keep your data private to you | Supabase Auth (passwords are hashed by Supabase) |
-| Profile: name, preferred name, timezone, language, communication preferences | Greeting you, time-of-day awareness, speaking your language | App database |
-| Settings: memory on/off, crisis-support region | Respecting your choices; showing the right crisis numbers | App database |
-| Microphone audio (during a conversation only) | Real-time conversation | Streamed to OpenAI; not stored by Haven |
-| Transcript (in memory, during and at the end of a conversation) | Safety checks on each thing you say; writing a summary at the end | Not stored. Sent to OpenAI for summarising and moderation, then discarded |
-| Conversation summaries (memory on) | Context for future conversations | App database |
-| Long-term memories (memory on) | Remembering goals, projects, preferences, important events | App database, with a numeric embedding used for search |
-| Conversation start/end times and duration | Basic operation and your export | App database |
-| Safety events: risk level and category only | Understanding how often safety responses are triggered | App database; the words you said are never stored |
+| Data | Why |
+| --- | --- |
+| Your Gemini API key and the chosen models | To connect to Gemini |
+| Profile: name, preferred name, timezone, language | Greeting you, time-of-day awareness |
+| Settings: memory on/off, crisis-support region, auto-start | Respecting your choices; showing the right crisis numbers |
+| Conversation summaries (memory on) | Context for future conversations |
+| Long-term memories (memory on) | Remembering goals, projects, preferences, important events |
+| Conversation start/end times | Your export; basic bookkeeping |
+| Safety events: risk level and category only | Never the words you said |
 
-Haven deliberately filters passwords, card and account numbers, API keys and
-government ID numbers out of anything it remembers.
+All of it is stored with Android's EncryptedSharedPreferences, using a key
+held in the Android Keystore, and is excluded from cloud backup and device
+transfer. Passwords, card and account numbers, API keys and ID numbers are
+filtered out of anything Haven remembers.
 
-## Third-party processing
+## What is sent to Google (Gemini API)
 
-- **OpenAI** (Realtime API, transcription, text and embedding models,
-  moderation) processes your audio and text to produce responses, summaries,
-  embeddings and safety signals. OpenAI processes API data under its own
-  terms and policies; see openai.com/policies. At the time of writing, OpenAI
-  states that API data is not used to train its models by default.
-- **Supabase** hosts authentication and the database.
-- **Your backend host** (for example Render or Fly.io) runs the API server.
+| When | What |
+| --- | --- |
+| During a conversation | Your microphone audio; the companion's instructions, which include your preferred name, local time, relevant memories and recent conversation summaries; results of the companion's tool calls (e.g. a memory or a knowledge-base passage) |
+| At the end of a conversation (memory on) | The conversation transcript, once, to write the summary and extract memories |
+| When you add or change your key | A request listing the models your key can use |
 
-No data is sold, used for advertising, or shared with anyone else. The app
-contains no analytics or advertising SDKs.
+Google processes this under the Gemini API Additional Terms and Google's
+privacy policy. **For unpaid (free-tier) use, Google states that it may use
+submitted content to provide and improve its products, and that human
+reviewers may read, annotate and process it.** If you enable billing on your
+Google project, paid-tier terms apply instead. See
+ai.google.dev/gemini-api/terms.
 
-## On your device
-
-Login tokens and onboarding choices are stored in Android encrypted shared
-preferences (keys held in the Android Keystore). They are excluded from cloud
-backup and device transfer. Nothing about your conversations is stored on the
-device.
+No data is sent to the Haven project or anyone else. The app contains no
+analytics or advertising SDKs.
 
 ## Retention
 
 | Data | Retention |
 | --- | --- |
-| Audio | Not stored |
-| Full transcripts | Not stored (processed once, then discarded) |
-| Summaries and memories | Until you delete them, turn off memory and clear them, or delete your account |
-| Safety events, conversation times | Until you delete your data or account |
-| Account | Until you delete it |
+| Audio | Not stored by Haven |
+| Full transcripts | Not stored by Haven (held in memory during the conversation, then discarded) |
+| Summaries and memories | Until you delete them or delete everything |
+| Everything on the phone | Until you delete it in Settings or uninstall the app |
 
-Data held by third parties (e.g. OpenAI API logs) follows their retention
-policies.
+Data sent to Google follows Google's retention policies.
 
 ## Your controls
 
 In **Settings**:
 
-- **Remember what I tell you?** — turn memory on or off.
-- **What I remember** — see every memory; delete any one; or **Forget
-  everything about me** (memories and summaries).
-- **Export my data** — download everything stored about you as JSON.
-- **Delete all my data** — deletes your profile, settings, memories,
-  summaries, conversation history and safety events, keeping your login.
-- **Delete my account** — deletes all of the above and your login.
+- **Remember what I tell you?** — memory on or off.
+- **What I remember** — see every memory; delete any one.
+- **Forget everything about me** — deletes all memories and summaries.
+- **Export my data** — save everything Haven stores as a JSON file.
+- **Delete everything** — deletes all data, your key and settings.
 
-In conversation you can also say "forget that".
+In conversation you can also say "forget that". Uninstalling the app deletes
+all of its data.
 
 ## Security
 
-All traffic is encrypted in transit (HTTPS / DTLS-SRTP for voice). The OpenAI
-API key is held only on the server; the app receives a single-use key that
-expires within minutes. Every database query is scoped to the signed-in user.
+Traffic to Google uses TLS. The API key is stored encrypted and sent only to
+Google. Don't share an APK or device backup containing your key.
 
 ## Children
 

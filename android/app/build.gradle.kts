@@ -7,14 +7,13 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-// Public configuration comes from android/local.properties, Gradle properties
-// or environment variables. None of these are secrets: the Supabase anon key is
-// designed to ship in clients. The OpenAI key NEVER goes here.
 val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
 
+// Release signing only. The app needs no build-time configuration: the user enters
+// their own Gemini API key on first launch.
 fun cfg(name: String, default: String = ""): String =
     (localProps.getProperty(name) ?: project.findProperty(name) as String? ?: System.getenv(name) ?: default)
 
@@ -26,12 +25,13 @@ android {
         applicationId = "app.haven.companion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
+    }
 
-        buildConfigField("String", "BACKEND_URL", "\"${cfg("HAVEN_BACKEND_URL", "http://10.0.2.2:8000")}\"")
-        buildConfigField("String", "SUPABASE_URL", "\"${cfg("HAVEN_SUPABASE_URL")}\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${cfg("HAVEN_SUPABASE_ANON_KEY")}\"")
+    sourceSets {
+        // The psychoeducation library ships inside the APK (assets/sources/*.md).
+        getByName("main").assets.srcDir("../../knowledge")
     }
 
     signingConfigs {
@@ -71,7 +71,6 @@ android {
     }
     buildFeatures {
         compose = true
-        buildConfig = true
     }
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -93,7 +92,6 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.webrtc)
     debugImplementation(libs.compose.ui.tooling)
 
     testImplementation(libs.junit)

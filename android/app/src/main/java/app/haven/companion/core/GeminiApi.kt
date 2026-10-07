@@ -1,0 +1,129 @@
+package app.haven.companion.core
+
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.IOException
+
+class GeminiException(val code: Int, message: String) : IOException(message)
+
+@Serializable
+data class GeminiModel(
+    val name: String,
+    val displayName: String? = null,
+    val supportedGenerationMethods: List<String> = emptyList(),
+) {
+    val id: String get() = name.removePrefix("models/")
+}
+
+/** Blocking client for the Gemini REST API. Call from a background thread. */
+class GeminiApi(
+    private val http: OkHttpClient,
+    private val apiKey: () -> String?,
+    private val baseUrl: String = "https://generativelanguage.googleapis.com/v1beta",
+) {
+    @Serializable
+    private data class ModelList(val models: List<GeminiModel> = emptyList(), val nextPageToken: String? = null)
+
+    private fun key(): String = apiKey()?.takeIf { it.isNotBlank() } ?: throw GeminiException(401, "No Gemini API key set")
+
+    private fun execute(request: Request): String {
+        http.newCall(request).execute().use { resp ->
+            val body = resp.body?.string().orEmpty()
+            if (!resp.isSuccessful) throw GeminiException(resp.code, describeError(resp.code, body))
+            return body
+        }
+    }
+
+    fun listModels(key: String = key()): List<GeminiModel> {
+        val out = mutableListOf<GeminiModel>()
+        var page: String? = null
+        do {
+            val url = "$baseUrl/models?pageSize=1000" + (page?.let { "&pageToken=$it" } ?: "")
+            val body = execute(Request.Builder().url(url).header("x-goog-api-key", key).get().build())
+            val list = AppJson.decodeFromString<ModelList>(body)
+            out += list.models
+            page = list.nextPageToken
+        } while (!page.isNullOrBlank())
+        return out
+    }
+
+    /** Asks a text model for a JSON object. */
+    fun generateJson(model: String, system: String, user: String): JsonObject {
+        val payload = buildJsonObject {
+            put("systemInstruction", buildJsonObject { put("parts", buildJsonArray { add(buildJsonObject { put("text", system) }) }) })
+            put("contents", buildJsonArray {
+                add(buildJsonObject {
+                    put("role", "user")
+                    put("parts", buildJsonArray { add(buildJsonObject { put("text", user) }) })
+                })
+            })
+            put("generationConfig", buildJsonObject {
+                put("responseMimeType", "application/json")
+                put("temperature", 0.2)
+            })
+        }
+        val body = execute(
+            Request.Builder()
+                .url("$baseUrl/models/$model:generateContent")
+                .header("x-goog-api-key", key())
+                .post(AppJson.encodeToString(payload).toRequestBody("application/json".toMediaType()))
+                .build()
+        )
+        return try {
+            val text = AppJson.parseToJsonElement(body).jsonObject["candidates"]!!.jsonArray[0].jsonObject["content"]!!
+                .jsonObject["parts"]!!.jsonArray[0].jsonObject["text"]!!.jsonPrimitive.content
+            AppJson.parseToJsonElement(text).jsonObject
+        } catch (e: Exception) {
+            throw GeminiException(502, "The model did not return valid JSON")
+        }
+    }
+
+    companion object {
+        fun describeError(code: Int, body: String): String = when {
+            code == 400 && body.contains("API_KEY_INVALID") -> "That Gemini API key isn't valid."
+            code == 403 -> "This Gemini API key isn't allowed to use the Gemini API."
+            code == 429 -> "Gemini's free limit was reached. Please try again in a little while."
+            code >= 500 -> "Gemini is having trouble right now. Please try again shortly."
+            else -> "Gemini returned an error ($code)."
+        }
+
+        private fun versionOf(id: String): Double =
+            Regex("""gemini-(\d+(?:\.\d+)?)""").find(id)?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
+
+        /** Picks the newest live (speech-to-speech) model, avoiding slower "thinking" and translation variants. */
+        fun chooseLiveModel(models: List<GeminiModel>): String? {
+            val live = models.filter { "bidiGenerateContent" in it.supportedGenerationMethods }
+                .filterNot { m -> listOf("thinking", "translate").any { it in m.id } }
+            return live.sortedWith(
+                compareByDescending<GeminiModel> { versionOf(it.id) }
+                    .thenByDescending { "native-audio" in it.id || "live" in it.id }
+                    .thenByDescending { it.id }
+            ).firstOrNull()?.id
+        }
+
+        /** Picks a fast, generally available text model for end-of-conversation summaries. */
+        fun chooseTextModel(models: List<GeminiModel>): String? {
+            val text = models.filter { "generateContent" in it.supportedGenerationMethods && it.id.startsWith("gemini-") }
+                .filterNot { m -> listOf("image", "tts", "audio", "live", "embedding", "thinking", "exp").any { it in m.id } }
+            val stableFlash = Regex("""^gemini-\d+(\.\d+)?-flash(-lite)?$""")
+            return text.sortedWith(
+                compareByDescending<GeminiModel> { stableFlash.matches(it.id) }
+                    .thenByDescending { "flash" in it.id }
+                    .thenByDescending { !it.id.contains("preview") }
+                    .thenByDescending { versionOf(it.id) }
+                    .thenBy { it.id.contains("lite") }
+            ).firstOrNull()?.id
+        }
+    }
+}

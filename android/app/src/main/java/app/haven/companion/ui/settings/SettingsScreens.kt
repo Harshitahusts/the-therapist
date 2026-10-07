@@ -27,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -39,12 +40,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.haven.companion.data.SUPPORTED_CRISIS_REGIONS
+import app.haven.companion.core.SUPPORTED_CRISIS_REGIONS
 import app.haven.companion.ui.onboarding.DISCLAIMER
+import app.haven.companion.ui.onboarding.PRIVACY_SUMMARY
 import app.haven.companion.ui.theme.HavenColors
+import java.time.Instant
+import java.time.ZoneId
 
 @Composable
 private fun ScreenScaffold(title: String, onBack: () -> Unit, busy: Boolean, content: @Composable ColumnScope.() -> Unit) {
@@ -60,7 +66,7 @@ private fun ScreenScaffold(title: String, onBack: () -> Unit, busy: Boolean, con
 }
 
 @Composable
-private fun Item(title: String, subtitle: String? = null, color: androidx.compose.ui.graphics.Color? = null,
+private fun Item(title: String, subtitle: String? = null, color: Color? = null,
                  trailing: (@Composable () -> Unit)? = null, onClick: (() -> Unit)? = null) {
     Row(
         Modifier
@@ -96,13 +102,13 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenMemories: () -> Unit,
     onOpenPrivacy: () -> Unit,
-    onSignedOut: () -> Unit,
-    onDataDeleted: () -> Unit,
+    onDeletedEverything: () -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    var confirm by remember { mutableStateOf<String?>(null) }
-    var regionPicker by remember { mutableStateOf(false) }
+    var dialog by remember { mutableStateOf<String?>(null) }
+    var newKey by remember { mutableStateOf("") }
+    LaunchedEffect(Unit) { vm.reload() }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) vm.exportTo { json ->
@@ -115,37 +121,39 @@ fun SettingsScreen(
             state.message?.let {
                 Text(it, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             }
-            val memoryOn = state.me?.settings?.memory_enabled ?: true
+            val memoryOn = state.data.settings.memoryEnabled
             Item(
                 "Remember what I tell you?",
-                if (memoryOn) "On: useful things are remembered between conversations."
+                if (memoryOn) "On: useful things are remembered between conversations, on this phone."
                 else "Off: no long-term memories are created.",
-                trailing = { Switch(checked = memoryOn, enabled = state.me != null && !state.busy, onCheckedChange = vm::setMemoryEnabled) },
+                trailing = { Switch(checked = memoryOn, onCheckedChange = vm::setMemoryEnabled) },
             )
             Item("What I remember", "See and delete individual memories", onClick = onOpenMemories)
             Item(
                 "Start talking when I open the app",
                 trailing = { Switch(checked = state.autoStart, onCheckedChange = vm::setAutoStart) },
             )
-            val region = state.me?.settings?.crisis_region ?: "INTL"
-            Item("Crisis support region", SUPPORTED_CRISIS_REGIONS[region] ?: region, onClick = { regionPicker = true })
+            val region = state.data.settings.crisisRegion
+            Item("Crisis support region", SUPPORTED_CRISIS_REGIONS[region] ?: region, onClick = { dialog = "region" })
             HorizontalDivider()
-            Item("Export my data", "Download everything stored about you as JSON",
+            Item("Gemini API key", "Replace the key Haven uses", onClick = { newKey = ""; dialog = "key" })
+            Item("Voice model", state.liveModel ?: "Not set", onClick = { vm.loadLiveModels(); dialog = "model" })
+            HorizontalDivider()
+            Item("Export my data", "Save everything Haven stores as a JSON file",
                 onClick = { exportLauncher.launch("haven-export.json") })
             Item("Privacy & disclaimer", onClick = onOpenPrivacy)
-            Item("Sign out", state.me?.email, onClick = { vm.signOut(onSignedOut) })
             HorizontalDivider()
-            Item("Delete all my data", "Memories, summaries, profile and history. Keeps your login.",
-                color = HavenColors.Danger, onClick = { confirm = "data" })
-            Item("Delete my account", "Deletes all data and your login. This can't be undone.",
-                color = HavenColors.Danger, onClick = { confirm = "account" })
+            Item("Forget everything about me", "Deletes all memories and conversation summaries",
+                color = HavenColors.Danger, onClick = { dialog = "forget" })
+            Item("Delete everything", "All data, your Gemini key and settings. Like a fresh install.",
+                color = HavenColors.Danger, onClick = { dialog = "wipe" })
             Spacer(Modifier.height(32.dp))
         }
     }
 
-    if (regionPicker) {
-        AlertDialog(
-            onDismissRequest = { regionPicker = false },
+    when (dialog) {
+        "region" -> AlertDialog(
+            onDismissRequest = { dialog = null },
             title = { Text("Crisis support region") },
             text = {
                 Column {
@@ -153,21 +161,51 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodyMedium)
                     SUPPORTED_CRISIS_REGIONS.forEach { (code, label) ->
                         Row(verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().clickable { vm.setCrisisRegion(code); regionPicker = false }) {
-                            RadioButton(selected = (state.me?.settings?.crisis_region ?: "INTL") == code, onClick = null)
+                            modifier = Modifier.fillMaxWidth().clickable { vm.setCrisisRegion(code); dialog = null }) {
+                            RadioButton(selected = state.data.settings.crisisRegion == code, onClick = null)
                             Text(label, Modifier.padding(start = 8.dp))
                         }
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { regionPicker = false }) { Text("Close") } },
+            confirmButton = { TextButton(onClick = { dialog = null }) { Text("Close") } },
         )
-    }
-    when (confirm) {
-        "data" -> Confirm("Delete all your data?", "Everything stored about you will be permanently deleted. Your login stays.",
-            "Delete", { vm.deleteAllData(onDataDeleted) }, { confirm = null })
-        "account" -> Confirm("Delete your account?", "All your data and your login will be permanently deleted.",
-            "Delete account", { vm.deleteAccount(onSignedOut) }, { confirm = null })
+        "key" -> AlertDialog(
+            onDismissRequest = { dialog = null },
+            title = { Text("Gemini API key") },
+            text = {
+                OutlinedTextField(
+                    value = newKey, onValueChange = { newKey = it.trim() }, singleLine = true,
+                    label = { Text("New key") }, visualTransformation = PasswordVisualTransformation(),
+                )
+            },
+            confirmButton = {
+                TextButton(enabled = newKey.length >= 20, onClick = { vm.changeKey(newKey); dialog = null }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { dialog = null }) { Text("Cancel") } },
+        )
+        "model" -> AlertDialog(
+            onDismissRequest = { dialog = null },
+            title = { Text("Voice model") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    val models = state.liveModels
+                    if (models == null) Text("Loading…") else models.forEach { m ->
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().clickable { vm.setLiveModel(m); dialog = null }) {
+                            RadioButton(selected = state.liveModel == m, onClick = null)
+                            Text(m, Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { dialog = null }) { Text("Close") } },
+        )
+        "forget" -> Confirm("Forget everything?", "All memories and conversation summaries will be permanently deleted.",
+            "Forget everything", vm::forgetEverything) { dialog = null }
+        "wipe" -> Confirm("Delete everything?",
+            "All your data, your Gemini key and your settings will be permanently deleted from this phone.",
+            "Delete everything", { vm.deleteEverything(onDeletedEverything) }) { dialog = null }
     }
 }
 
@@ -175,16 +213,13 @@ fun SettingsScreen(
 fun MemoriesScreen(vm: SettingsViewModel, onBack: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     var confirmAll by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { vm.loadMemories() }
+    val memories = state.data.memories.sortedByDescending { it.updatedAt }
+    LaunchedEffect(Unit) { vm.reload() }
 
     ScreenScaffold("What I remember", onBack, state.busy) {
-        state.message?.let {
-            Text(it, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-        }
-        val memories = state.memories
-        if (memories != null && memories.isEmpty()) {
+        if (memories.isEmpty()) {
             Text(
-                if (state.me?.settings?.memory_enabled == false) "Memory is off, so nothing is being remembered."
+                if (!state.data.settings.memoryEnabled) "Memory is off, so nothing is being remembered."
                 else "Nothing yet. As you talk, I'll remember things that help, like goals or what's been on your mind.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -192,12 +227,13 @@ fun MemoriesScreen(vm: SettingsViewModel, onBack: () -> Unit) {
             )
         }
         LazyColumn(Modifier.weight(1f)) {
-            items(memories.orEmpty(), key = { it.id }) { m ->
+            items(memories, key = { it.id }) { m ->
                 Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(m.content, style = MaterialTheme.typography.bodyLarge)
-                        Text(m.category.replace('_', ' ') + " · " + m.updated_at.take(10),
+                        val date = Instant.ofEpochMilli(m.updatedAt).atZone(ZoneId.systemDefault()).toLocalDate()
+                        Text(m.category.replace('_', ' ') + " · " + date,
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = { vm.deleteMemory(m.id) }) {
@@ -207,7 +243,7 @@ fun MemoriesScreen(vm: SettingsViewModel, onBack: () -> Unit) {
                 HorizontalDivider()
             }
         }
-        if (!memories.isNullOrEmpty()) {
+        if (memories.isNotEmpty()) {
             TextButton(onClick = { confirmAll = true }, modifier = Modifier.padding(16.dp)) {
                 Text("Forget everything about me", color = HavenColors.Danger)
             }
@@ -227,28 +263,30 @@ fun PrivacyScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Section("Not a therapist", DISCLAIMER)
+            Section("In short", PRIVACY_SUMMARY)
             Section(
-                "What happens to your voice",
-                "While a conversation is open, your microphone audio is streamed to OpenAI's Realtime API, which " +
-                    "listens and replies with a voice. This app does not record or store audio. OpenAI processes it " +
-                    "under its API data-usage policies."
-            )
-            Section(
-                "What is stored",
-                "Your email and login (Supabase Auth). Your profile (name, timezone, language) and settings. " +
-                    "When memory is on: a short summary of each conversation and a few useful long-term facts. " +
-                    "Start and end times of conversations. If a safety concern is detected, only its risk level " +
-                    "and category are recorded, never what you said."
+                "What is stored on this phone",
+                "Your name, timezone and language; your settings; and, when memory is on, short summaries of " +
+                    "conversations and a few useful long-term facts. Start and end times of conversations. If a safety " +
+                    "concern is detected, only its risk level and category, never what you said. All of it is encrypted " +
+                    "with a key kept in the Android Keystore and excluded from cloud backups."
             )
             Section(
                 "What is never stored",
-                "Raw audio. Full transcripts (they are used once to write the summary and then discarded). " +
-                    "Passwords, card numbers, API keys or ID numbers are filtered out of memories."
+                "Audio. Full transcripts (they are used once at the end of a conversation to write the summary, then " +
+                    "discarded). Passwords, card numbers, API keys or ID numbers are filtered out of memories."
+            )
+            Section(
+                "What goes to Google",
+                "During a conversation, your microphone audio and the companion's context (your name, relevant " +
+                    "memories and recent summaries) go to the Gemini API. At the end, the transcript is sent once to " +
+                    "write the summary. Google handles it under the Gemini API terms; on the free tier it may be used " +
+                    "to improve Google's products and may be read by human reviewers."
             )
             Section(
                 "Your controls",
-                "Turn memory off at any time. Delete single memories, or everything, from \"What I remember\". " +
-                    "Export all your data as JSON. Delete all data, or your whole account, from Settings."
+                "Turn memory off at any time, delete single memories or everything, export all your data as JSON, " +
+                    "or delete everything including your key from Settings."
             )
             Section("Full policy", "The full privacy policy and terms are published with the project's source code in PRIVACY_POLICY.md and TERMS.md.")
         }
