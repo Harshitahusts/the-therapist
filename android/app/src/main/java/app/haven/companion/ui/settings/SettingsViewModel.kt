@@ -3,115 +3,106 @@ package app.haven.companion.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.haven.companion.AppContainer
-import app.haven.companion.data.ApiException
-import app.haven.companion.data.Config
-import app.haven.companion.data.Me
-import app.haven.companion.data.MemoryItem
-import app.haven.companion.data.NetworkException
-import app.haven.companion.data.SettingsUpdate
+import app.haven.companion.core.CompanionData
+import app.haven.companion.core.GeminiException
+import app.haven.companion.voice.VoiceSessionController
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.IOException
 
 data class SettingsUiState(
-    val me: Me? = null,
-    val memories: List<MemoryItem>? = null,
+    val data: CompanionData = CompanionData(),
     val autoStart: Boolean = true,
+    val liveModel: String? = null,
+    val liveModels: List<String>? = null,
     val busy: Boolean = false,
     val message: String? = null,
 )
 
-class SettingsViewModel(private val c: AppContainer, private val onMeChanged: (Me?) -> Unit) : ViewModel() {
-    private val _state = MutableStateFlow(SettingsUiState(autoStart = c.store.autoStart))
+class SettingsViewModel(private val c: AppContainer) : ViewModel() {
+    private val _state = MutableStateFlow(snapshot())
     val state: StateFlow<SettingsUiState> = _state
 
-    init {
-        refresh()
-    }
+    private fun snapshot(base: SettingsUiState = SettingsUiState()) =
+        base.copy(data = c.repo.data, autoStart = c.store.autoStart, liveModel = c.store.liveModel)
+
+    private fun refresh(message: String? = _state.value.message) = _state.update { snapshot(it).copy(message = message) }
 
     private fun launchAction(block: suspend () -> Unit) {
         viewModelScope.launch {
             _state.update { it.copy(busy = true, message = null) }
             try {
                 block()
-            } catch (e: Exception) {
-                val msg = when (e) {
-                    is NetworkException -> Config.NETWORK_ERROR_MESSAGE
-                    is ApiException -> e.message
-                    else -> "Something went wrong."
-                }
-                _state.update { it.copy(message = msg) }
+            } catch (e: GeminiException) {
+                _state.update { it.copy(message = e.message) }
+            } catch (e: IOException) {
+                _state.update { it.copy(message = VoiceSessionController.NETWORK_ERROR) }
             } finally {
                 _state.update { it.copy(busy = false) }
             }
         }
     }
 
-    fun refresh() = launchAction {
-        val me = c.api.me()
-        _state.update { it.copy(me = me) }
-        onMeChanged(me)
+    fun setMemoryEnabled(enabled: Boolean) {
+        c.repo.updateSettings { it.copy(memoryEnabled = enabled) }
+        refresh()
     }
 
-    fun loadMemories() = launchAction {
-        val list = c.api.memories()
-        _state.update { it.copy(memories = list) }
-    }
-
-    fun setMemoryEnabled(enabled: Boolean) = launchAction {
-        val me = c.api.updateSettings(SettingsUpdate(memory_enabled = enabled))
-        _state.update { it.copy(me = me) }
-        onMeChanged(me)
-    }
-
-    fun setCrisisRegion(region: String) = launchAction {
-        val me = c.api.updateSettings(SettingsUpdate(crisis_region = region))
-        _state.update { it.copy(me = me) }
-        onMeChanged(me)
+    fun setCrisisRegion(region: String) {
+        c.repo.updateSettings { it.copy(crisisRegion = region) }
+        refresh()
     }
 
     fun setAutoStart(enabled: Boolean) {
         c.store.autoStart = enabled
-        _state.update { it.copy(autoStart = enabled) }
+        refresh()
     }
 
-    fun deleteMemory(id: String) = launchAction {
-        c.api.deleteMemory(id)
-        _state.update { s -> s.copy(memories = s.memories?.filterNot { it.id == id }) }
+    fun deleteMemory(id: String) {
+        c.repo.deleteMemory(id)
+        refresh()
     }
 
-    fun forgetEverything() = launchAction {
-        c.api.deleteAllMemories()
-        _state.update { it.copy(memories = emptyList(), message = "Done. I've forgotten everything you told me.") }
+    fun forgetEverything() {
+        c.repo.forgetEverything()
+        refresh("Done. I've forgotten everything you told me.")
+    }
+
+    fun changeKey(key: String) = launchAction {
+        val error = c.connectGeminiKey(key)
+        refresh(error ?: "Gemini key updated.")
+    }
+
+    fun loadLiveModels() = launchAction {
+        val models = c.liveModels()
+        _state.update { it.copy(liveModels = models) }
+    }
+
+    fun setLiveModel(model: String) {
+        c.store.liveModel = model
+        refresh()
     }
 
     fun exportTo(write: (String) -> Unit) = launchAction {
-        val json = c.api.exportData()
-        write(json)
-        _state.update { it.copy(message = "Your data was exported.") }
+        withContext(Dispatchers.IO) { write(c.repo.exportJson()) }
+        refresh("Your data was exported.")
     }
 
-    fun deleteAllData(onDone: () -> Unit) = launchAction {
-        c.api.deleteAllData()
-        c.store.introCompleted = false
-        onMeChanged(null)
-        onDone()
-    }
-
-    fun deleteAccount(onDone: () -> Unit) = launchAction {
-        c.api.deleteAccount()
-        c.auth.signOutLocally()
+    /** Deletes all data, the Gemini key and settings: like a fresh install. */
+    fun deleteEverything(onDone: () -> Unit) {
+        c.voice.stop()
+        c.repo.wipe()
         c.store.clearAll()
-        onMeChanged(null)
+        refresh()
         onDone()
     }
 
-    fun signOut(onDone: () -> Unit) = launchAction {
-        c.auth.signOut()
-        onMeChanged(null)
-        onDone()
-    }
+    /** Re-read stored data (memories may have been added by a conversation that just ended). */
+    fun reload() = refresh(null)
 
     fun clearMessage() = _state.update { it.copy(message = null) }
 }

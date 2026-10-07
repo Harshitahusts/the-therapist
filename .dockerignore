@@ -1,6 +1,0 @@
-**/__pycache__
-**/.pytest_cache
-**/*.db
-**/.env
-android/
-.git/

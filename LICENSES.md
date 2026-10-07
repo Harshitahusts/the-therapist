@@ -3,46 +3,24 @@
 Haven's own code is MIT-licensed (see `LICENSE`). This file lists every
 external component and every knowledge-base source.
 
-## Backend (Python)
-
-| Component | Purpose | License |
-| --- | --- | --- |
-| FastAPI | HTTP API framework | MIT |
-| Uvicorn | ASGI server | BSD-3-Clause |
-| SQLAlchemy | ORM / database access | MIT |
-| Alembic | Database migrations | MIT |
-| psycopg 3 | PostgreSQL driver | LGPL-3.0 (used unmodified as a library) |
-| pgvector-python | pgvector types for SQLAlchemy | MIT |
-| Pydantic, pydantic-settings | Validation and configuration | MIT |
-| PyJWT (+ cryptography) | Verifying Supabase access tokens | MIT (cryptography: Apache-2.0 / BSD) |
-| httpx | HTTP client for OpenAI and Supabase APIs | BSD-3-Clause |
-| pytest | Tests | MIT |
-
-## Database
-
-| Component | Purpose | License |
-| --- | --- | --- |
-| PostgreSQL | Relational database | PostgreSQL License |
-| pgvector | Vector similarity search | PostgreSQL License |
-
-## Android
+## Android app
 
 | Component | Purpose | License |
 | --- | --- | --- |
 | Kotlin, kotlinx.coroutines, kotlinx.serialization | Language and libraries | Apache-2.0 |
-| AndroidX (Core, Activity, Lifecycle, Security Crypto) | Platform support | Apache-2.0 |
+| AndroidX (Core, Activity, Lifecycle, Security Crypto) | Platform support, encrypted storage | Apache-2.0 |
 | Jetpack Compose (UI, Material 3, Material Icons) | User interface | Apache-2.0 |
-| OkHttp | HTTP client | Apache-2.0 |
-| stream-webrtc-android (GetStream build of WebRTC) | Real-time audio connection | Apache-2.0 (WebRTC itself: BSD-3-Clause) |
+| OkHttp (+ Okio) | HTTPS and WebSocket client for the Gemini API | Apache-2.0 |
 | JUnit 4 | Unit tests | EPL-1.0 |
 
-## External services (not open source; used via API)
+## External service (not open source; used via API)
 
 | Service | Purpose | Terms |
 | --- | --- | --- |
-| OpenAI API (Realtime, transcription, text, embeddings, moderation) | Voice conversation, summaries, embeddings, safety signal | Commercial API, usage-based pricing; OpenAI Terms of Use and usage policies |
-| Supabase | Hosted PostgreSQL + pgvector and Auth | Commercial platform with a free tier; core components open source (Apache-2.0 / MIT / PostgreSQL) |
-| Render (or any Docker host) | Hosting the backend | Commercial platform with a free tier |
+| Google Gemini API (Live API and a text model) | Voice conversation and end-of-conversation summaries | Google APIs Terms of Service and Gemini API Additional Terms. Used with the user's own API key; free tier available, with free-tier content usable by Google to improve its products |
+
+The Live API wire format was implemented from Google's public API reference and
+the open-source `google-genai` Python SDK (Apache-2.0); no SDK code is included.
 
 Crisis-line information is factual public information from each service's
 own website.

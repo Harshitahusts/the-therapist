@@ -20,7 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import app.haven.companion.data.CrisisResources
+import app.haven.companion.core.CrisisResources
 import app.haven.companion.ui.theme.HavenColors
 
 /**

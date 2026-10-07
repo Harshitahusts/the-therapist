@@ -1,39 +1,27 @@
 # Project costs
 
-Haven is a **non-profit personal project**: it is free, has no ads and makes
-no money. That does **not** make the services it depends on free or
-non-profit. OpenAI in particular is a commercial, usage-billed API.
+Haven is a **non-profit personal project**: free, no ads, no money made. It
+has no server, so there is nothing to host. The only external dependency is
+Google's Gemini API, used with **your own** API key.
 
-Prices and free-tier limits change often. Figures below are indicative at the
-time of writing; always check the provider's pricing page.
+Free-tier limits and prices change; check Google AI Studio for the limits on
+your project and ai.google.dev/pricing for current prices.
 
 ## Components
 
 | Component | Provider | Purpose | License | Free tier | Potential cost | Open-source alternative |
 | --- | --- | --- | --- | --- | --- | --- |
-| Android app | This project | UI, voice connection | MIT | — | **Free** | — |
-| Backend API | This project (FastAPI) | Auth checks, memory, RAG, safety, session minting | MIT | — | **Free** (software) | — |
-| Backend hosting | Render (or Fly.io, Railway, a VPS, a home server) | Runs the API container | Commercial | Render free web service (sleeps when idle, so the first request can take up to about a minute) | Free → ~US$7/month for an always-on small instance | Any Docker host you own |
-| Database + vector search | Supabase (PostgreSQL + pgvector) | Profiles, memories, summaries, knowledge | PostgreSQL / Apache-2.0 | Free project with a small database (hundreds of MB; ample for one user). Free projects pause after a period of inactivity | Free → paid plan (~US$25/month) if you outgrow it | Self-hosted PostgreSQL + pgvector |
-| Authentication | Supabase Auth | Email/password login | Apache-2.0 (GoTrue) | Generous monthly-active-user allowance | **Free** for personal use | Self-hosted Supabase Auth, Keycloak |
-| Realtime voice | **OpenAI Realtime API** | Speech-to-speech conversation | Commercial API | None | **Paid, per audio token.** The dominant cost: roughly cents per minute of conversation, depending on model, how much each side talks and conversation length (the context grows during a session) | Self-hosted open models (e.g. Whisper + an open LLM + open TTS); much more work and usually higher latency |
-| Transcription | OpenAI (`gpt-4o-mini-transcribe`) | Transcripts for safety checks and summaries | Commercial API | None | Paid, small | Whisper (MIT) self-hosted |
-| Summaries + memory extraction | OpenAI (`gpt-4.1-mini` by default) | One short call per conversation | Commercial API | None | Paid, fractions of a cent per conversation | Any open LLM via an OpenAI-compatible server |
-| Embeddings | OpenAI (`text-embedding-3-small`) | Memory and knowledge search | Commercial API | None | Paid, negligible at personal scale | sentence-transformers models (Apache-2.0) |
-| Moderation | OpenAI moderation endpoint | Extra safety signal | Commercial API | Free to use for API customers at the time of writing | Free | Rules-only (already the primary layer) |
-| Knowledge base | This project | Psychoeducation for RAG | CC BY 4.0 | — | **Free** | — |
-| CI / APK builds | GitHub Actions | Tests and APK build | Commercial | Free minutes for public repos and a monthly allowance for private ones | Free for this project's usage | Local builds in Android Studio |
+| Android app | This project | Everything on the phone: UI, audio, memory, safety, knowledge search | MIT | — | **Free** | — |
+| Data storage | Android (on-device, encrypted) | Memories, summaries, settings | Apache-2.0 (AndroidX) | — | **Free** | — |
+| Knowledge base | This project | Psychoeducation for retrieval, bundled in the APK | CC BY 4.0 | — | **Free** | — |
+| Realtime voice | **Google Gemini Live API** | Speech-to-speech conversation | Commercial API | **Yes**: rate-limited free tier, limits set per Google project. Free-tier content may be used by Google to improve its products | If you enable billing: roughly US$0.005/min of your audio and US$0.018/min of the companion's audio for current Flash Live models (indicative) | Self-hosted Whisper + an open LLM + open TTS: free and private, but far more setup and slower |
+| Summaries + memory extraction | Google Gemini text model (Flash class) | One short call per conversation | Commercial API | **Yes** | Fractions of a cent per conversation on paid tier | Any open LLM |
+| CI / APK builds | GitHub Actions | Tests and APK build | Commercial | Free minutes for public repos and a monthly allowance for private ones | Free for this project | Local builds in Android Studio |
 
-## Keeping costs down
+## If you hit free-tier limits
 
-- **Voice minutes are the main cost.** Set an OpenAI monthly budget and usage
-  alerts in the OpenAI dashboard.
-- `REALTIME_SESSIONS_PER_HOUR` (default 20) caps how many conversations can be
-  started per user per hour.
-- Conversations end automatically after 50 minutes, when you tap "End
-  conversation", or when the app goes to the background.
-- `max_output_tokens` is capped per response, and the persona is instructed to
-  keep replies short.
-- Switch `OPENAI_REALTIME_MODEL` to a smaller/cheaper realtime model if your
-  account offers one, and compare quality.
-- Set `USE_MODERATION=false` to skip the moderation call (rules still apply).
+- Haven tells you ("Gemini's free limit was reached") and you can try again later.
+- Shorter conversations use less quota; conversations also end automatically
+  after 50 minutes or when the app goes to the background.
+- Enabling billing on your Google project lifts the limits and switches to
+  paid-tier data terms (content not used to improve Google's products).

@@ -2,10 +2,10 @@ name: Android
 
 on:
   push:
-    paths: ["android/**", ".github/workflows/android.yml"]
+    paths: ["android/**", "knowledge/**", "eval/**", "LICENSES.md", ".github/workflows/android.yml"]
     tags: ["v*"]
   pull_request:
-    paths: ["android/**", ".github/workflows/android.yml"]
+    paths: ["android/**", "knowledge/**", "eval/**", "LICENSES.md", ".github/workflows/android.yml"]
   workflow_dispatch:
 
 jobs:
@@ -14,11 +14,6 @@ jobs:
     defaults:
       run:
         working-directory: android
-    env:
-      # Public client configuration (set as repository *variables*, not secrets).
-      HAVEN_BACKEND_URL: ${{ vars.HAVEN_BACKEND_URL }}
-      HAVEN_SUPABASE_URL: ${{ vars.HAVEN_SUPABASE_URL }}
-      HAVEN_SUPABASE_ANON_KEY: ${{ vars.HAVEN_SUPABASE_ANON_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4

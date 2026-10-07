@@ -14,97 +14,95 @@ toward real human help when things are serious.
 Open app → "Good evening, Harshit. How are you feeling?" → you talk → it listens → it replies
 ```
 
-No chat screen, no typing box, no scrolling history. Three screens: onboarding,
-the voice orb, and settings/privacy.
+No chat screen, no typing box, no account, no server. Just an APK and your own
+free Gemini API key.
 
-## Architecture
+## How it works
 
 ```
- ANDROID APP (Kotlin + Jetpack Compose)                 BACKEND (Python FastAPI)            
- ┌──────────────────────────────────────┐              ┌──────────────────────────────────┐
- │ Voice orb UI                          │  1. mint     │ Auth: verifies Supabase JWT       │
- │ VoiceSessionController ───────────────┼─────────────▶│ /v1/realtime/session              │
- │   RealtimeCoordinator (pure state     │  ephemeral   │   builds instructions: persona,   │
- │   machine: phases, tools, safety)     │  key (2 min) │   profile, memories, summaries    │
- │ WebRtcVoiceLink ──────┐               │              │   mints OpenAI client secret ─────┼──▶ OpenAI
- └───────────────────────┼───────────────┘              │                                   │
-              2. mic audio + events (WebRTC)            │ /v1/conversations/{id}/tools/*    │
-                         ▼                              │   memories, profile, RAG library  │
-                 OpenAI Realtime API                    │ /v1/conversations/{id}/turns      │
-            (speech-to-speech, VAD, interruptions)      │   safety engine (rules+moderation)│
-                         │  tool calls / transcripts    │ /v1/conversations/{id}/end        │
-                         └── relayed by the app ───────▶│   summary + memory extraction     │
-                                                        └───────────────┬──────────────────┘
-                                                                        ▼
-                                                PostgreSQL + pgvector (Supabase)
-                                    users · profiles · settings · conversations · summaries
-                                    memories · memory_embeddings · safety_events · knowledge
+ ┌───────────────────────────── Android phone ─────────────────────────────┐
+ │  Voice orb UI                                                            │
+ │  VoiceSessionController                                                  │
+ │    MicRecorder (16 kHz, echo cancel) ──┐        ┌── SpeakerPlayer (24 kHz)│
+ │    LiveCoordinator (pure state machine: phases, interruptions,           │
+ │      tool calls, transcripts, safety re-steer, session resumption)       │
+ │    Safety classifier (on-device rules) → crisis card + guidance          │
+ │    Tools: memories · profile · summaries · knowledge search (BM25)       │
+ │    DataRepository → EncryptedSharedPreferences (Android Keystore)        │
+ └────────────────────────────────┬─────────────────────────────────────────┘
+                                  │ WebSocket (audio in/out, tool calls)
+                                  ▼
+                 Google Gemini Live API  (your own free API key)
+                 + one Gemini text call per conversation for the summary
 ```
 
-Key decisions:
+- **Speech-to-speech.** The phone streams microphone audio to the Gemini Live
+  API and plays the reply as it arrives. Gemini detects when you've finished
+  speaking; talking over the companion interrupts it.
+- **Everything else runs on the phone.** Memories, summaries, the
+  psychoeducation library, the safety classifier and the tools the companion
+  calls all live in the app. Data is stored encrypted with a key held in the
+  Android Keystore and excluded from backups.
+- **Memory is a controlled layer.** At the end of a conversation the transcript
+  is sent once to a Gemini text model to write a compact summary and extract a
+  few durable facts, then discarded. Only relevant memories and recent
+  summaries are given to the companion.
+- **Safety runs on every utterance**, on the device, with deterministic rules
+  tested against a 57-case evaluation set. Anything above LOW cuts off the
+  current reply and re-steers the companion with guidance; HIGH/IMMEDIATE also
+  shows a crisis card with tap-to-dial numbers for your region.
+- **RAG without the cloud.** Twelve original CC BY 4.0 psychoeducation
+  documents (`knowledge/sources`) ship inside the APK and are searched with
+  BM25 when the companion wants grounded material.
 
-- **Speech-to-speech, not STT → LLM → TTS.** The app streams audio to the
-  OpenAI Realtime API over WebRTC. Server-side semantic VAD detects when you've
-  finished speaking; talking over the companion interrupts it.
-- **The OpenAI API key never leaves the server.** The backend mints a
-  short-lived client secret for each conversation. Tools (memory, knowledge)
-  execute on the backend under your account's authorization.
-- **Memory is a controlled layer, not "the model remembers".** At the end of a
-  conversation the transcript is sent once to the backend, which writes a
-  compact summary and extracts a few durable facts, then discards it. Only
-  relevant memories and recent summaries are put in front of the model.
-- **Safety runs on every utterance.** Deterministic rules (tested against an
-  evaluation set) plus an optional moderation signal classify risk as
-  LOW / MODERATE / HIGH / IMMEDIATE. MODERATE adds guidance to the
-  conversation; HIGH/IMMEDIATE interrupts the current reply, re-steers the
-  model toward human help, and shows a crisis card with tap-to-dial numbers.
-- **RAG, not fine-tuning.** Psychoeducation comes from a curated, licensed
-  knowledge base (`knowledge/sources`) retrieved via pgvector, with source
-  metadata kept for every chunk.
+## Get it running
+
+1. **Get a free Gemini API key**: https://aistudio.google.com/apikey → *Create API key*.
+2. **Get the APK**: on GitHub, open **Actions → Android**, pick the latest
+   green run, and download **haven-debug-apk** (or build it yourself; see
+   [`docs/BUILD_APK.md`](docs/BUILD_APK.md)).
+3. Install it on your phone, open it, follow the short intro, and paste your key.
+
+That's it. There is nothing to deploy.
+
+## Privacy, in one paragraph
+
+Nothing is stored anywhere except your phone. To talk, your voice and the
+companion's context (your name, relevant memories, recent summaries) are sent to
+Google's Gemini API with your key. **On Gemini's free tier, Google may use that
+content to improve its products and human reviewers may read it.** Haven says
+so during onboarding. See [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md).
 
 ## Repository layout
 
 | Path | What |
 | --- | --- |
-| `android/` | Kotlin + Jetpack Compose app (WebRTC voice, onboarding, settings) |
-| `backend/` | FastAPI service, Alembic migrations, safety engine, memory, RAG |
-| `knowledge/` | Licensed psychoeducation sources for RAG |
-| `eval/` | Safety classification cases and conversation behaviour scenarios |
-| `docs/` | Deployment, APK build, architecture notes, security review |
-| `PRIVACY_POLICY.md`, `TERMS.md` | Privacy policy and terms/disclaimer |
-| `LICENSES.md`, `PROJECT_COSTS.md` | Third-party licences and costs |
+| `android/` | The app (Kotlin + Jetpack Compose) |
+| `android/app/src/main/java/app/haven/companion/core/` | Platform-free logic: live session, safety, memory, knowledge, Gemini client, data |
+| `knowledge/` | Licensed psychoeducation sources, bundled into the APK |
+| `eval/` | Safety classification cases (run as unit tests) and conversation rubric |
+| `docs/` | APK build guide and security review |
+| `PRIVACY_POLICY.md`, `TERMS.md`, `LICENSES.md`, `PROJECT_COSTS.md` | Policies, licences, costs |
 
-## Quick start
+## Development
 
-1. **Backend + database** — follow [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
-   (Supabase for Postgres+pgvector+Auth, Render/Fly/any Docker host for the API).
-   For local development:
-   ```bash
-   cd backend
-   python -m venv .venv && . .venv/bin/activate
-   pip install -r requirements-dev.txt
-   cp .env.example .env            # fill in DATABASE_URL, SUPABASE_*, OPENAI_API_KEY
-   alembic upgrade head
-   python -m scripts.ingest_knowledge
-   uvicorn app.main:app_factory --factory --reload
-   pytest -q                        # 110 tests, SQLite by default
-   ```
-2. **APK** — follow [`docs/BUILD_APK.md`](docs/BUILD_APK.md). Either build in
-   Android Studio, or push to GitHub and download the APK artifact from the
-   `Android` workflow.
+```bash
+cd android
+./gradlew testDebugUnitTest   # core logic, safety eval, knowledge, live-session protocol
+./gradlew assembleDebug       # app/build/outputs/apk/debug/app-debug.apk
+```
 
 ## Status and limitations
 
-- The backend is fully tested (unit + API tests on SQLite and on PostgreSQL with
-  pgvector, plus a 57-case safety evaluation set).
-- The Android app's pure logic (realtime event coordinator, transcript ordering,
-  mic level) has JVM unit tests. The full Android build runs in GitHub Actions;
-  it should be smoke-tested on a real device before relying on it.
+- The core logic has 41 JVM unit tests (including all 57 safety cases). The app
+  is built in CI; voice has not yet been tried on a real device, so expect
+  some tuning (echo on loudspeaker in particular; headphones are best).
+- Gemini's free-tier limits are set per Google project and can change; if you
+  hit them, Haven says so and you can try again later.
 - Crisis numbers are included for IN, US, CA, GB, IE, AU and NZ; other regions
-  get a link to findahelpline.com. Verify the numbers for your region.
-- The keyword safety layer is a backstop, not a guarantee. It is deliberately
-  conservative and will sometimes miss or over-flag; the voice model also has
-  its own safety instructions.
+  get findahelpline.com. Verify the numbers for your region.
+- The keyword safety layer is a backstop, not a guarantee; the voice model also
+  has its own safety instructions.
 
 ## License
 
