@@ -115,6 +115,16 @@ private fun DrawScope.drawFace(t: Float, listening: Float, speaking: Float, thin
     fun p(x: Float, y: Float) = Offset(ox + x * unit, oy + y * unit)
     val ink = HavenColors.Ink
 
+    // A soft patch of leaf behind the face, so the gold seams fade out under it.
+    val patch = Color(0xFF5BAA79)
+    drawCircle(
+        Brush.radialGradient(
+            0f to patch.copy(alpha = 0.95f), 0.6f to patch.copy(alpha = 0.75f), 1f to patch.copy(alpha = 0f),
+            center = p(50f, 53f), radius = 17f * unit,
+        ),
+        radius = 17f * unit, center = p(50f, 53f),
+    )
+
     // Cheeks
     val blush = HavenColors.Blush.copy(alpha = 0.55f + 0.25f * speaking)
     drawCircle(blush, 3.4f * unit, p(35f, 55f))
