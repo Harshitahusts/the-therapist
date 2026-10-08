@@ -75,6 +75,10 @@ android {
         compose = true
         buildConfig = true
     }
+    androidResources {
+        // Sound recordings are read straight from the APK, so they must stay uncompressed.
+        noCompress += "ogg"
+    }
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }

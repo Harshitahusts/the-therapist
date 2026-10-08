@@ -7,6 +7,7 @@ import app.haven.companion.core.GeminiException
 import app.haven.companion.core.KnowledgeBase
 import app.haven.companion.data.EncryptedPersistence
 import app.haven.companion.data.SecureStore
+import app.haven.companion.voice.AssetAudio
 import app.haven.companion.voice.SoundEngine
 import app.haven.companion.voice.VoiceSessionController
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +23,7 @@ class HavenApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        AssetAudio.preload(this)
     }
 }
 

@@ -73,7 +73,7 @@ Sign-in with Google will be added before any public release.
   tested against a 57-case evaluation set. Anything above LOW cuts off the
   current reply and re-steers the companion with guidance; HIGH/IMMEDIATE also
   shows a crisis card with tap-to-dial numbers for your region.
-- **Soundscapes are synthesised on the phone** (no recordings, no downloads)
+- **Soundscapes are synthesised on the phone** (Birds uses real forest recordings from Mixkit; nothing is downloaded)
   and mixed with the companion's voice into one audio stream, so the phone's
   echo canceller keeps them out of the microphone.
 - **RAG without the cloud.** Thirteen original CC BY 4.0 psychoeducation
