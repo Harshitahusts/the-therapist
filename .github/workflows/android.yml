@@ -8,6 +8,10 @@ on:
     paths: ["android/**", "knowledge/**", "eval/**", "LICENSES.md", ".github/workflows/android.yml"]
   workflow_dispatch:
 
+# Least privilege: the workflow only needs to read the code.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,15 +27,23 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Unit tests
         run: ./gradlew --no-daemon testDebugUnitTest
-      - name: Build debug APK
+      - name: Build APK
         env:
           # The Gemini key the app talks with. Add it under Settings → Secrets and variables → Actions.
           HAVEN_GEMINI_API_KEY: ${{ secrets.HAVEN_GEMINI_API_KEY }}
-        run: ./gradlew --no-daemon assembleDebug
+        run: ./gradlew --no-daemon assembleRelease
+      - name: Check the Gemini key is built in
+        env:
+          HAS_KEY: ${{ secrets.HAVEN_GEMINI_API_KEY != '' }}
+        run: |
+          if [ "$HAS_KEY" = "true" ]; then echo "Gemini key: built in"
+          else echo "::warning title=No Gemini key::The HAVEN_GEMINI_API_KEY repository secret is not set, so the app will ask for a key on first launch."; fi
+      # The APK can contain the Gemini key, so keep it only briefly.
       - uses: actions/upload-artifact@v4
         with:
-          name: haven-debug-apk
-          path: android/app/build/outputs/apk/debug/*.apk
+          name: haven-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          retention-days: 7
 
       - name: Build signed release APK
         if: startsWith(github.ref, 'refs/tags/v')
@@ -80,4 +92,4 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           working-directory: android
-          script: ./gradlew --no-daemon connectedDebugAndroidTest
+          script: ./gradlew --no-daemon connectedAndroidTest -PhavenTestBuildType=release

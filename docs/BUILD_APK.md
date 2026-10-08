@@ -28,12 +28,12 @@ If no key is built in, the app falls back to asking for one during setup.
 
 1. In the GitHub repo, open **Actions → Android**.
 2. Open the latest run with a green tick (or click **Run workflow** to build one).
-3. At the bottom, download **haven-debug-apk** (a zip containing `app-debug.apk`).
+3. At the bottom, download **haven-apk** (a zip containing `app-release.apk`).
 4. Copy the APK to your phone and open it. Android asks you to allow installs
    from that app (browser or file manager); allow it.
 
-The debug APK is signed with a throwaway debug key, which is fine for personal
-use. To update later, install a newer debug APK from the same workflow.
+The APK is signed with the CI machine's key unless a release keystore is set up, which is fine for personal
+use. If an update will not install over the old app, uninstall the old one first.
 
 ### Signed release build (optional)
 

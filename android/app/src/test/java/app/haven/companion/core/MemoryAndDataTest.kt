@@ -67,8 +67,12 @@ class MemoryAndDataTest {
     fun forgetEverythingAndWipe() {
         repo.saveMemory("User is learning to cook.", "goal")
         repo.saveSummary(ConversationSummary("c1", "Talked about cooking.", createdAt = 1))
+        repo.startConversation()
+        repo.recordSafetyEvent(Safety.classify("I want to end my life"))
         repo.forgetEverything()
         assertTrue(repo.data.memories.isEmpty() && repo.data.summaries.isEmpty())
+        assertTrue("forgetting also clears history and safety events",
+            repo.data.conversations.isEmpty() && repo.data.safetyEvents.isEmpty())
         repo.updateProfile { it.copy(preferredName = "H") }
         repo.wipe()
         assertNull(store.stored)
@@ -103,5 +107,18 @@ class MemoryAndDataTest {
         repo.saveMemory("User wants to run a half marathon.", "goal")
         assertNull(MemoryEngine.bestMatch(repo.data.memories, "favourite pizza topping"))
         assertEquals("User wants to run a half marathon.", MemoryEngine.bestMatch(repo.data.memories, "the half marathon")!!.content)
+    }
+
+    @Test
+    fun storageStaysBounded() {
+        repeat(DataRepository.MAX_MEMORIES) { repo.saveMemory("Memory number $it is about topic ${"x".repeat(it % 7)}${it * 7919}.", "other") }
+        val before = repo.data.memories.size
+        val full = runCatching { repo.saveMemory("A completely new and different memory about sailing boats.", "other") }
+        if (before >= DataRepository.MAX_MEMORIES) assertEquals("full", (full.exceptionOrNull() as MemoryRejected).reason)
+        assertTrue(repo.data.memories.size <= DataRepository.MAX_MEMORIES)
+        repeat(DataRepository.MAX_SAFETY_EVENTS + 20) { repo.recordSafetyEvent(Safety.classify("I feel hopeless")) }
+        assertEquals(DataRepository.MAX_SAFETY_EVENTS, repo.data.safetyEvents.size)
+        repeat(DataRepository.MAX_SUMMARIES + 5) { repo.saveSummary(ConversationSummary("c$it", "s", createdAt = it.toLong())) }
+        assertEquals(DataRepository.MAX_SUMMARIES, repo.data.summaries.size)
     }
 }
