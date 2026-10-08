@@ -213,6 +213,19 @@ class VoiceSessionController(
             store.apiKey?.let { open(it) } ?: fail(NETWORK_ERROR)
             return
         }
+        // The model itself wouldn't start: move on to the next best live model and remember it.
+        val nextModel = store.liveFallbacks.firstOrNull()
+        if (!c.setupDone && nextModel != null) {
+            Log.i(TAG, "live model $liveModel did not start (code $code); trying $nextModel")
+            store.liveFallbacks = store.liveFallbacks.drop(1)
+            store.liveModel = nextModel
+            liveModel = nextModel
+            triedVoiceFallback = voiceInUse in Voices.CLASSIC
+            coordinator = LiveCoordinator(liveModel, instructions, voiceInUse)
+            socket = null
+            store.apiKey?.let { open(it) } ?: fail(NETWORK_ERROR)
+            return
+        }
         // Gemini rotates connections; resume the same session when we can.
         if (c.resumeHandle != null && reconnects < MAX_RECONNECTS && code != 1007 && code != 1008) {
             reconnects++

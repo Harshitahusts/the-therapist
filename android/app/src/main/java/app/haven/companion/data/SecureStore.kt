@@ -45,6 +45,11 @@ class SecureStore(context: Context) {
         get() = prefs.getString("live_model", null)
         set(v) = prefs.edit { putString("live_model", v) }
 
+    /** Other live models to try, best first, if the chosen one won't start. */
+    var liveFallbacks: List<String>
+        get() = prefs.getString("live_fallbacks", null)?.split(",")?.filter { it.isNotBlank() }.orEmpty()
+        set(v) = prefs.edit { putString("live_fallbacks", v.joinToString(",")) }
+
     var textModel: String?
         get() = prefs.getString("text_model", null)
         set(v) = prefs.edit { putString("text_model", v) }

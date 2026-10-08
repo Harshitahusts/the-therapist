@@ -58,10 +58,12 @@ class AppContainer(app: Application) {
     suspend fun connectGeminiKey(key: String, save: Boolean = true): String? = withContext(Dispatchers.IO) {
         try {
             val models = gemini.listModels(key.trim())
-            val live = GeminiApi.chooseLiveModel(models)
+            val ranked = GeminiApi.rankLiveModels(models)
+            val live = ranked.firstOrNull()
                 ?: return@withContext "This key works, but it can't use Gemini's live voice models yet. Try again later or use a different key."
             if (save) store.apiKey = key.trim()
             store.liveModel = live
+            store.liveFallbacks = ranked.drop(1).take(3)
             store.textModel = GeminiApi.chooseTextModel(models)
             store.ttsModel = GeminiApi.chooseTtsModel(models)
             null
