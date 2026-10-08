@@ -8,7 +8,7 @@ enum class SoundId(val label: String, val emoji: String, /** Balances loudness b
     AIR("Air", "🌬️", 2.0f),
     WATER("Water", "💧", 3.4f),
     BIRDS("Birds", "🐦", 5.0f),
-    RIVER("River", "🏞️", 1.45f),
+    RIVER("River", "🏞️", 2.3f),
     BONFIRE("Bonfire", "🔥", 1.2f),
     FRESH("Fresh", "🌿", 2.3f),
 }
@@ -102,18 +102,33 @@ class Birds(sr: Float, seed: Int) : Soundscape(sr, seed) {
     }
 }
 
-/** River: deep flowing brown noise plus a bubbling mid band. */
+/**
+ * River: a small, gentle stream tumbling over stones, like a tiny waterfall.
+ * A soft, bright rush of water that swells a little, a light gurgle, and lots of
+ * tiny bubbles. Each bubble is a short note whose pitch rises as it pops
+ * (the way real air bubbles in water ring), which is what makes water sound wet.
+ */
 class River(sr: Float, seed: Int) : Soundscape(sr, seed) {
-    private val low = BrownNoise(rng)
-    private val lp = Biquad(sr).lowpass(650f)
-    private val white = WhiteNoise(rng)
-    private val bp = Biquad(sr)
-    private val bubble = Drift(rng, 500f, 1400f, 11f, sr)
+    private val rush = PinkNoise(rng)
+    private val rushHp = Biquad(sr).highpass(250f)
+    private val rushLp = Biquad(sr).lowpass(5000f)
+    private val surge = Drift(rng, 0.7f, 1.0f, 0.6f, sr)
+    private val gurgleNoise = WhiteNoise(rng)
+    private val gurgle = Biquad(sr)
+    private val gurgleCenter = Drift(rng, 900f, 2600f, 6f, sr)
+    private val body = BrownNoise(rng)
+    private val bodyLp = Biquad(sr).lowpass(400f)
+    private val bubbles = Every(0.008f, 0.045f) {
+        val f = rng.range(600f, 2200f)
+        blips += Blip(sampleRate, f, f * rng.range(1.6f, 2.4f), rng.range(0.015f, 0.04f), rng.range(0.03f, 0.08f))
+    }
     private var n = 0
     override fun next(): Float {
-        val f = bubble.next()
-        if (n++ % 32 == 0) bp.bandpass(f, 2.2f)
-        return lp.process(low.next()) * 0.6f + bp.process(white.next()) * 0.3f
+        bubbles.tick()
+        val c = gurgleCenter.next()
+        if (n++ % 32 == 0) gurgle.bandpass(c, 1.2f)
+        val water = rushLp.process(rushHp.process(rush.next())) * 0.5f * surge.next()
+        return water + gurgle.process(gurgleNoise.next()) * 0.25f + bodyLp.process(body.next()) * 0.25f + renderBlips()
     }
 }
 
