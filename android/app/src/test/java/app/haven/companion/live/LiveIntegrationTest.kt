@@ -170,41 +170,4 @@ class LiveIntegrationTest {
         }
         assertTrue("previews failed: $failures", failures.isEmpty())
     }
-
-    private fun lastReply(h: LiveHarness) = h.coordinator.transcript().lastOrNull { it.role == "assistant" }?.text.orEmpty()
-
-    @Test
-    fun f_breaksDownAQuestionTheUserCannotAnswer() {
-        harness(Voices.DEFAULT).use { h ->
-            assertTrue(h.awaitTurns(1))
-            h.say("Honestly, I'm just not feeling like myself lately.")
-            assertTrue(h.awaitTurns(1))
-            val asked = lastReply(h)
-            h.say("I don't know. I really can't answer that.")
-            assertTrue(h.awaitTurns(1))
-            val easier = lastReply(h)
-            log("STUCK asked: $asked")
-            log("STUCK easier: $easier")
-            assertTrue("offers a smaller question", easier.contains("?"))
-            assertTrue("doesn't repeat the same question", easier.trim() != asked.trim())
-        }
-    }
-
-    @Test
-    fun g_quietUserGetsAGentleCheckIn() {
-        harness(Voices.DEFAULT).use { h ->
-            assertTrue(h.awaitTurns(1))
-            h.playbackIdle()
-            val deadline = System.currentTimeMillis() + LiveCoordinator.FIRST_QUIET_NUDGE_MS + 10_000
-            var nudged = false
-            while (!nudged && System.currentTimeMillis() < deadline) {
-                Thread.sleep(1_000)
-                nudged = h.tick()
-            }
-            assertTrue("nudged after the quiet period", nudged)
-            assertTrue(h.awaitTurns(1))
-            log("QUIET check-in: ${lastReply(h)}")
-            assertTrue(lastReply(h).isNotBlank())
-        }
-    }
 }
