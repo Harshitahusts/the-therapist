@@ -3,4 +3,5 @@
     <color name="haven_background">#F4F9F2</color>
     <color name="haven_icon_background">#E3F1E1</color>
     <color name="haven_icon_foreground">#4F9C6E</color>
+    <color name="haven_icon_seam">#E8B64C</color>
 </resources>

@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -78,31 +79,36 @@ fun LeafBuddy(modifier: Modifier = Modifier, roam: Dp = 70.dp, size: Dp = 96.dp)
     val dx = 0.75f * 3 * cos(3 * t) + 0.25f * 7 * cos(7 * t + 1f)
     val tilt = (dx * 7f).coerceIn(-18f, 18f) // lean forward into the motion
 
-    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        AnimatedContent(
-            targetState = tapped,
-            transitionSpec = { (fadeIn() + scaleIn(initialScale = 0.85f)) togetherWith fadeOut() },
-            label = "bubble",
-        ) { smiling ->
-            Text(
-                if (smiling) BUDDY_SMILE else BUDDY_PROMPT,
-                style = MaterialTheme.typography.bodyMedium,
-                color = HavenColors.LeafDeep,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .padding(horizontal = 24.dp)
-                    .shadow(4.dp, RoundedCornerShape(18.dp))
-                    .background(HavenColors.Card, RoundedCornerShape(18.dp))
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-            )
-        }
-        Box(Modifier.fillMaxWidth().height(size + roam * 1.3f), contentAlignment = Alignment.Center) {
+    Box(modifier.fillMaxWidth().height(size + roam * 1.3f + 56.dp), contentAlignment = Alignment.Center) {
+        // The bubble and the buddy move together, so "Click me" is always on the leaf itself.
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.graphicsLayer {
+                translationX = x * roam.toPx()
+                translationY = y * roam.toPx() * 0.55f
+            },
+        ) {
+            AnimatedContent(
+                targetState = tapped,
+                transitionSpec = { (fadeIn() + scaleIn(initialScale = 0.85f)) togetherWith fadeOut() },
+                label = "bubble",
+            ) { smiling ->
+                Text(
+                    if (smiling) BUDDY_SMILE else BUDDY_PROMPT,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = HavenColors.LeafDeep,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .widthIn(max = 200.dp)
+                        .shadow(3.dp, RoundedCornerShape(14.dp))
+                        .background(HavenColors.Card, RoundedCornerShape(14.dp))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
             Canvas(
                 Modifier
                     .size(size)
                     .graphicsLayer {
-                        translationX = x * roam.toPx()
-                        translationY = y * roam.toPx() * 0.55f
                         rotationZ = tilt
                         val bounce = 1f + 0.12f * joy
                         scaleX = bounce; scaleY = bounce

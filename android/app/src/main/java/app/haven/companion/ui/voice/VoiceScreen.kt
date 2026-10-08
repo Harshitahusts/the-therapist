@@ -35,7 +35,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -60,7 +59,6 @@ import app.haven.companion.ui.components.VoiceOrb
 import app.haven.companion.ui.theme.HavenColors
 import app.haven.companion.voice.SoundEngine
 import app.haven.companion.voice.VoiceSessionController
-import kotlinx.coroutines.delay
 import java.time.LocalTime
 
 fun greetingFor(hour: Int): String = when (hour) {
@@ -70,13 +68,7 @@ fun greetingFor(hour: Int): String = when (hour) {
     else -> "Hi"
 }
 
-/** "4:12" style elapsed time for the session timer. */
-fun formatElapsed(ms: Long): String {
-    val s = (ms / 1000).coerceAtLeast(0)
-    return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, s / 60 % 60, s % 60) else "%d:%02d".format(s / 60, s % 60)
-}
-
-/** The talk screen: orb, status, session timer, and the soundscape mixer. */
+/** The talk screen: the leaf, status, and the soundscape mixer. */
 @Composable
 fun VoiceScreen(
     controller: VoiceSessionController,
@@ -115,13 +107,6 @@ fun VoiceScreen(
     }
 
     val active = state.phase !in setOf(VoicePhase.IDLE, VoicePhase.ERROR)
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(active) {
-        while (active) {
-            now = System.currentTimeMillis()
-            delay(1000)
-        }
-    }
     val status = when (state.phase) {
         VoicePhase.IDLE -> "Tap me to talk"
         VoicePhase.CONNECTING -> "Getting comfy…"
@@ -175,14 +160,6 @@ fun VoiceScreen(
                 color = if (state.phase == VoicePhase.ERROR) MaterialTheme.colorScheme.error else HavenColors.InkSoft,
                 textAlign = TextAlign.Center,
             )
-            val started = state.startedAt
-            if (active && started != null) {
-                Text(
-                    "⏱ Talking for ${formatElapsed(now - started)}",
-                    style = MaterialTheme.typography.bodyMedium, color = HavenColors.InkSoft,
-                    modifier = Modifier.semantics { contentDescription = "Conversation length ${formatElapsed(now - started)}" },
-                )
-            }
             if (micDenied) {
                 Text(
                     "Haven needs the microphone to talk with you. You can allow it in Android Settings > Apps > Haven.",

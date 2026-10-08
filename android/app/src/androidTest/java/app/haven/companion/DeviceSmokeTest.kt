@@ -2,6 +2,7 @@ package app.haven.companion
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -22,6 +23,8 @@ class DeviceSmokeTest {
 
     @Test
     fun funnelOpensAndMovesForward() {
+        // The opening leaf animation plays first (about 5 s).
+        compose.waitUntil(15_000) { compose.onAllNodesWithText("Let's begin").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Let's begin").assertIsDisplayed().performClick()
         compose.onNodeWithText("Your name").performTextInput("Asha")
         compose.onNodeWithText("Nice to meet you →").performClick()
