@@ -36,6 +36,23 @@ class AudioTest {
         assertEquals(SoundId.entries.size, rms.values.map { (it * 1000).toInt() }.toSet().size)
     }
 
+    /** Brightness: energy of the sample-to-sample change relative to the signal (high for hiss, low for rumble). */
+    private fun brightness(id: SoundId): Double {
+        val s = Soundscape.create(id, sr)
+        val xs = FloatArray(24_000 * 6) { s.next() }.drop(24_000)
+        var e = 0.0; var d = 0.0
+        for (i in 1 until xs.size) { e += xs[i] * xs[i]; val diff = xs[i] - xs[i - 1]; d += diff * diff }
+        return d / e
+    }
+
+    @Test
+    fun rainAndRiverSoundClearlyDifferent() {
+        val rain = brightness(SoundId.RAIN)
+        val river = brightness(SoundId.RIVER)
+        assertTrue("rain should be much brighter than the river: rain=$rain river=$river", rain > river * 2)
+        assertEquals("Rain", SoundId.RAIN.label)
+    }
+
     @Test
     fun echoRepeatsTheVoiceQuietlyAfterTheDelay() {
         val echo = Echo(sr, delaySec = 0.1f, feedback = 0.25f, wet = 0.2f)

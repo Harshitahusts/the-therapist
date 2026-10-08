@@ -28,7 +28,7 @@ free Gemini API key.
    companion keeps it in mind when you talk.
 5. **Voice key and microphone** (first time only).
 6. **Talk**: the voice orb, a session timer, and six mixable soundscapes
-   (Air, Water, Birds, River, Bonfire, Fresh) that play softly under the
+   (Air, Rain, Birds, River, Bonfire, Fresh) that play softly under the
    conversation and dip while Haven speaks. Haven's voice has a very light echo.
 
 Sign-in with Google will be added before any public release.

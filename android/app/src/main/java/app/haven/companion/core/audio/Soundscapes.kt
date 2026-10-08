@@ -6,7 +6,7 @@ package app.haven.companion.core.audio
  */
 enum class SoundId(val label: String, val emoji: String, /** Balances loudness between sounds. */ val level: Float) {
     AIR("Air", "🌬️", 2.0f),
-    WATER("Water", "💧", 3.4f),
+    RAIN("Rain", "🌧️", 1.9f),
     BIRDS("Birds", "🐦", 5.0f),
     RIVER("River", "🏞️", 2.3f),
     BONFIRE("Bonfire", "🔥", 1.2f),
@@ -44,7 +44,7 @@ abstract class Soundscape(protected val sampleRate: Float, seed: Int) {
     companion object {
         fun create(id: SoundId, sampleRate: Float, seed: Int = id.ordinal * 7919 + 17): Soundscape = when (id) {
             SoundId.AIR -> Air(sampleRate, seed)
-            SoundId.WATER -> Water(sampleRate, seed)
+            SoundId.RAIN -> Rain(sampleRate, seed)
             SoundId.BIRDS -> Birds(sampleRate, seed)
             SoundId.RIVER -> River(sampleRate, seed)
             SoundId.BONFIRE -> Bonfire(sampleRate, seed)
@@ -67,18 +67,34 @@ class Air(sr: Float, seed: Int) : Soundscape(sr, seed) {
     }
 }
 
-/** Soft rain: a bright noise bed plus scattered droplets. */
-class Water(sr: Float, seed: Int) : Soundscape(sr, seed) {
-    private val noise = PinkNoise(rng)
-    private val hp = Biquad(sr).highpass(700f)
-    private val lp = Biquad(sr).lowpass(6500f)
-    private val drops = Every(0.03f, 0.16f) {
-        val f = rng.range(2200f, 4800f)
-        blips += Blip(sampleRate, f, f * rng.range(0.55f, 0.75f), 0.05f, rng.range(0.05f, 0.11f))
+/**
+ * Rain: a steady, bright hiss of rainfall made of hundreds of tiny droplet ticks,
+ * with the odd heavier drop nearby and an occasional drip into a puddle. Unlike
+ * the river there is no bubbling and no surging: rain is even and broadband.
+ */
+class Rain(sr: Float, seed: Int) : Soundscape(sr, seed) {
+    private val hiss = WhiteNoise(rng)
+    private val hissHp = Biquad(sr).highpass(1200f)
+    private val hissLp = Biquad(sr).lowpass(9000f)
+    private val patter = PinkNoise(rng)
+    private val patterLp = Biquad(sr).lowpass(600f)
+    private val drops = ArrayList<Crackle>()
+    private val ticks = Every(0.002f, 0.008f) { drops += Crackle(rng, sampleRate, rng.range(0.05f, 0.2f)) }
+    private val heavy = Every(0.05f, 0.25f) { drops += Crackle(rng, sampleRate, rng.range(0.3f, 0.5f)) }
+    private val puddle = Every(0.6f, 2.0f) {
+        val f = rng.range(1800f, 3200f)
+        blips += Blip(sampleRate, f, f * 0.8f, 0.06f, 0.04f)
     }
     override fun next(): Float {
-        drops.tick()
-        return lp.process(hp.process(noise.next())) * 0.45f + renderBlips()
+        ticks.tick(); heavy.tick(); puddle.tick()
+        var s = hissLp.process(hissHp.process(hiss.next())) * 0.35f + patterLp.process(patter.next()) * 0.15f
+        val it = drops.iterator()
+        while (it.hasNext()) {
+            val d = it.next()
+            s += d.next()
+            if (d.done) it.remove()
+        }
+        return s + renderBlips()
     }
 }
 
