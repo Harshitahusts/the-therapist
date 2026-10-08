@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -25,6 +26,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import app.haven.companion.core.WellbeingCheck
 import app.haven.companion.ui.checkin.CheckinFlow
+import app.haven.companion.ui.components.OpeningAnimation
 import app.haven.companion.ui.checkin.ResultScreen
 import app.haven.companion.ui.onboarding.FunnelScreen
 import app.haven.companion.ui.settings.MemoriesScreen
@@ -57,8 +59,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             HavenTheme {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    val vm: AppViewModel = viewModel(factory = viewModelFactory { initializer { AppViewModel(container) } })
-                    HavenApp(vm)
+                    // The leaf breaks apart and grows back together once per launch, then the app begins.
+                    var opening by rememberSaveable { mutableStateOf(true) }
+                    if (opening) {
+                        OpeningAnimation(onDone = { opening = false })
+                    } else {
+                        val vm: AppViewModel = viewModel(factory = viewModelFactory { initializer { AppViewModel(container) } })
+                        HavenApp(vm)
+                    }
                 }
             }
         }

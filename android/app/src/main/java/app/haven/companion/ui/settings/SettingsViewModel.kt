@@ -6,6 +6,7 @@ import app.haven.companion.AppContainer
 import app.haven.companion.core.CompanionData
 import app.haven.companion.core.GeminiException
 import app.haven.companion.core.Voices
+import app.haven.companion.voice.AssetAudio
 import app.haven.companion.voice.VoiceSessionController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -102,31 +103,46 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
         refresh()
     }
 
-    /** Plays a short sample of [name] through the speaker, using a Gemini text-to-speech model. */
+    /** Plays a short sample of [name]: a bundled clip first (no network, no quota), else Gemini text-to-speech. */
     fun previewVoice(name: String) {
         viewModelScope.launch { previewVoiceAfterSetup(name) }
     }
 
     private suspend fun previewVoiceAfterSetup(name: String) {
-        c.ensureModels()
-        val tts = c.store.ttsModel
-        if (tts == null) {
-            _state.update { it.copy(message = "Voice previews aren't available right now. You'll hear the voice in your next conversation.") }
-            return
-        }
-        run {
-            _state.update { it.copy(previewing = name, message = null) }
-            try {
-                val pcm = withContext(Dispatchers.IO) { c.gemini.speak(tts, name, PREVIEW_LINE) }
-                c.sound.enqueueVoice(pcm)
-            } catch (e: GeminiException) {
-                _state.update { it.copy(message = e.message) }
-            } catch (e: IOException) {
-                _state.update { it.copy(message = VoiceSessionController.NETWORK_ERROR) }
-            } finally {
-                _state.update { it.copy(previewing = null) }
+        _state.update { it.copy(previewing = name, message = null) }
+        try {
+            val bundled = withContext(Dispatchers.IO) {
+                runCatching { AssetAudio.decodeMono(c.app, "voices/$name.ogg") }.getOrNull()
             }
+            if (bundled != null) {
+                c.sound.enqueueVoice(toPcm16(bundled))
+                return
+            }
+            c.ensureModels()
+            val tts = c.store.ttsModel
+            if (tts == null) {
+                _state.update { it.copy(message = "Voice previews aren't available right now. You'll hear the voice in your next conversation.") }
+                return
+            }
+            val pcm = withContext(Dispatchers.IO) { c.gemini.speak(tts, name, PREVIEW_LINE) }
+            c.sound.enqueueVoice(pcm)
+        } catch (e: GeminiException) {
+            _state.update { it.copy(message = e.message) }
+        } catch (e: IOException) {
+            _state.update { it.copy(message = VoiceSessionController.NETWORK_ERROR) }
+        } finally {
+            _state.update { it.copy(previewing = null) }
         }
+    }
+
+    private fun toPcm16(samples: FloatArray): ByteArray {
+        val out = ByteArray(samples.size * 2)
+        samples.forEachIndexed { i, f ->
+            val v = (f.coerceIn(-1f, 1f) * 32767).toInt()
+            out[2 * i] = v.toByte()
+            out[2 * i + 1] = (v shr 8).toByte()
+        }
+        return out
     }
 
     fun exportTo(write: (String) -> Unit) = launchAction {
