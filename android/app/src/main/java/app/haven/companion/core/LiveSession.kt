@@ -306,6 +306,16 @@ class LiveCoordinator(
             } else {
                 lines += "- Memory is OFF: you will not remember this conversation later. Do not call save_memory or update_memory."
             }
+            data.checks.lastOrNull()?.let { c ->
+                val ageDays = (now.toInstant().toEpochMilli() - c.createdAt) / 86_400_000
+                if (ageDays <= 7) {
+                    val band = Checkin.band(c.score)
+                    lines += "- The user's latest wellbeing check-in (${if (ageDays == 0L) "today" else "$ageDays day(s) ago"}): " +
+                        "Well-Being Count ${c.score}/100 (${band.name}). It is a self-reflection, not a diagnosis; never call it one. " +
+                        "If it fits, you may gently draw on it, e.g. ask about an area that seemed hard. Their answers:"
+                    c.answers.forEach { a -> lines += "  - ${a.question} ${a.answer}" }
+                }
+            }
             return Prompts.VOICE_AGENT + "\n" + lines.joinToString("\n") + "\n"
         }
     }

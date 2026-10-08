@@ -94,8 +94,8 @@ class DataRepository(private val persistence: Persistence, private val clock: ()
         return exists
     }
 
-    /** "Forget everything about me": memories and conversation summaries. */
-    fun forgetEverything() = update { it.copy(memories = emptyList(), summaries = emptyList()) }
+    /** "Forget everything about me": memories, conversation summaries and check-ins. */
+    fun forgetEverything() = update { it.copy(memories = emptyList(), summaries = emptyList(), checks = emptyList()) }
 
     // --- conversations ---
     fun startConversation(): ConversationRecord {
@@ -127,6 +127,11 @@ class DataRepository(private val persistence: Persistence, private val clock: ()
         it.copy(safetyEvents = it.safetyEvents + SafetyEventRecord(a.level.name, a.categories, clock()))
     }
 
+    // --- check-ins ---
+    fun saveCheck(check: WellbeingCheck) = update { it.copy(checks = (it.checks + check).takeLast(MAX_CHECKS)) }
+
+    val latestCheck: WellbeingCheck? get() = data.checks.lastOrNull()
+
     // --- privacy ---
     fun exportJson(): String = AppJson.encodeToString(data)
 
@@ -139,5 +144,6 @@ class DataRepository(private val persistence: Persistence, private val clock: ()
 
     companion object {
         const val DEDUP_SIMILARITY = 0.8
+        const val MAX_CHECKS = 100
     }
 }

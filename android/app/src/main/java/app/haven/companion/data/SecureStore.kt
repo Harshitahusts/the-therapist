@@ -44,6 +44,16 @@ class SecureStore(context: Context) {
         get() = prefs.getString("text_model", null)
         set(v) = prefs.edit { putString("text_model", v) }
 
+    /** Gemini prebuilt voice for the companion. */
+    var voice: String?
+        get() = prefs.getString("voice", null)
+        set(v) = prefs.edit { putString("voice", v) }
+
+    /** Text-to-speech model for voice previews, if the key has one. */
+    var ttsModel: String?
+        get() = prefs.getString("tts_model", null)
+        set(v) = prefs.edit { putString("tts_model", v) }
+
     var introCompleted: Boolean
         get() = prefs.getBoolean("intro_completed", false)
         set(v) = prefs.edit { putBoolean("intro_completed", v) }

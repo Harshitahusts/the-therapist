@@ -16,7 +16,9 @@ class KnowledgeBase(sources: List<Pair<String, String>>) {
     val documents: List<SourceDoc> = sources.filter { !it.first.equals("README.md", true) }.map { (name, text) -> parse(name, text) }
     private val chunks: List<Chunk> = documents.flatMap { doc ->
         chunkMarkdown(doc.body).map { (section, text) ->
-            Chunk(doc, section, text, terms("${doc.meta["title"]} ${section.orEmpty()} $text"))
+            // Titles and headings count three times: they say what a chunk is about.
+            val heading = "${doc.meta["title"]} ${section.orEmpty()}"
+            Chunk(doc, section, text, terms("$heading $heading $heading $text"))
         }
     }
     private val avgLen = chunks.map { it.terms.size }.average().takeIf { !it.isNaN() } ?: 1.0
@@ -51,8 +53,17 @@ class KnowledgeBase(sources: List<Pair<String, String>>) {
         fun terms(text: String): List<String> = Regex("""[a-z0-9]+""").findAll(text.lowercase())
             .map { it.value }
             .filter { it.length > 2 && it !in STOP }
-            .map { if (it.length > 4 && it.endsWith("s") && !it.endsWith("ss")) it.dropLast(1) else it }
+            .map { stem(it) }
             .toList()
+
+        /** Light stemming so "loneliness" meets "lonely" and "worries" meets "worry". */
+        private fun stem(w: String): String = when {
+            w.length > 6 && w.endsWith("iness") -> w.dropLast(5) + "y"
+            w.length > 6 && w.endsWith("ness") -> w.dropLast(4)
+            w.length > 5 && w.endsWith("ies") -> w.dropLast(3) + "y"
+            w.length > 4 && w.endsWith("s") && !w.endsWith("ss") -> w.dropLast(1)
+            else -> w
+        }
 
         private val STOP = setOf(
             "the", "and", "for", "are", "but", "not", "you", "your", "with", "that", "this", "can", "what", "how", "when",

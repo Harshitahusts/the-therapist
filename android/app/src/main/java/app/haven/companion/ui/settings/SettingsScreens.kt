@@ -46,6 +46,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.haven.companion.core.SUPPORTED_CRISIS_REGIONS
+import app.haven.companion.core.Voices
 import app.haven.companion.ui.onboarding.DISCLAIMER
 import app.haven.companion.ui.onboarding.PRIVACY_SUMMARY
 import app.haven.companion.ui.theme.HavenColors
@@ -137,13 +138,15 @@ fun SettingsScreen(
             Item("Crisis support region", SUPPORTED_CRISIS_REGIONS[region] ?: region, onClick = { dialog = "region" })
             HorizontalDivider()
             Item("Gemini API key", "Replace the key Haven uses", onClick = { newKey = ""; dialog = "key" })
+            val voice = Voices.find(state.voice)
+            Item("Haven's voice", "${voice.name} · ${voice.description}", onClick = { dialog = "voice" })
             Item("Voice model", state.liveModel ?: "Not set", onClick = { vm.loadLiveModels(); dialog = "model" })
             HorizontalDivider()
             Item("Export my data", "Save everything Haven stores as a JSON file",
                 onClick = { exportLauncher.launch("haven-export.json") })
             Item("Privacy & disclaimer", onClick = onOpenPrivacy)
             HorizontalDivider()
-            Item("Forget everything about me", "Deletes all memories and conversation summaries",
+            Item("Forget everything about me", "Deletes all memories, conversation summaries and check-ins",
                 color = HavenColors.Danger, onClick = { dialog = "forget" })
             Item("Delete everything", "All data, your Gemini key and settings. Like a fresh install.",
                 color = HavenColors.Danger, onClick = { dialog = "wipe" })
@@ -183,6 +186,32 @@ fun SettingsScreen(
                 TextButton(enabled = newKey.length >= 20, onClick = { vm.changeKey(newKey); dialog = null }) { Text("Save") }
             },
             dismissButton = { TextButton(onClick = { dialog = null }) { Text("Cancel") } },
+        )
+        "voice" -> AlertDialog(
+            onDismissRequest = { dialog = null },
+            title = { Text("Haven's voice") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    Text("Pick the voice that feels most calming to you. Tap Preview to hear it.",
+                        style = MaterialTheme.typography.bodyMedium)
+                    state.message?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+                    Voices.CALM.forEach { v ->
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().clickable { vm.setVoice(v.name) }) {
+                            RadioButton(selected = state.voice == v.name, onClick = null)
+                            Column(Modifier.weight(1f).padding(start = 8.dp, top = 6.dp, bottom = 6.dp)) {
+                                Text(v.name, style = MaterialTheme.typography.titleMedium)
+                                Text(v.description, style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            TextButton(onClick = { vm.previewVoice(v.name) }, enabled = state.previewing == null) {
+                                Text(if (state.previewing == v.name) "…" else "Preview")
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { dialog = null }) { Text("Done") } },
         )
         "model" -> AlertDialog(
             onDismissRequest = { dialog = null },

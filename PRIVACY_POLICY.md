@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: 7 October 2026_
+_Last updated: 8 October 2026_
 
 Haven is a personal, non-profit project: an AI wellbeing and self-reflection
 companion for Android. It has **no server and no account**. This policy
@@ -26,6 +26,7 @@ explains what data the app handles, where it goes, and how you control it.
 | Settings: memory on/off, crisis-support region, auto-start | Respecting your choices; showing the right crisis numbers |
 | Conversation summaries (memory on) | Context for future conversations |
 | Long-term memories (memory on) | Remembering goals, projects, preferences, important events |
+| Wellbeing check-ins: the questions you answered, your answers and your Well-Being Count | Showing your count; giving the companion gentle context |
 | Conversation start/end times | Your export; basic bookkeeping |
 | Safety events: risk level and category only | Never the words you said |
 
@@ -38,7 +39,7 @@ filtered out of anything Haven remembers.
 
 | When | What |
 | --- | --- |
-| During a conversation | Your microphone audio; the companion's instructions, which include your preferred name, local time, relevant memories and recent conversation summaries; results of the companion's tool calls (e.g. a memory or a knowledge-base passage) |
+| During a conversation | Your microphone audio; the companion's instructions, which include your preferred name, local time, relevant memories, recent conversation summaries and your latest check-in (if from the past week); results of the companion's tool calls (e.g. a memory or a knowledge-base passage) |
 | At the end of a conversation (memory on) | The conversation transcript, once, to write the summary and extract memories |
 | When you add or change your key | A request listing the models your key can use |
 
@@ -69,7 +70,7 @@ In **Settings**:
 
 - **Remember what I tell you?** — memory on or off.
 - **What I remember** — see every memory; delete any one.
-- **Forget everything about me** — deletes all memories and summaries.
+- **Forget everything about me** — deletes all memories, summaries and check-ins.
 - **Export my data** — save everything Haven stores as a JSON file.
 - **Delete everything** — deletes all data, your key and settings.
 

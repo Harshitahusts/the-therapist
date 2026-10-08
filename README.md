@@ -17,6 +17,28 @@ Open app → "Good evening, Harshit. How are you feeling?" → you talk → it l
 No chat screen, no typing box, no account, no server. Just an APK and your own
 free Gemini API key.
 
+## The journey
+
+1. **Welcome**: a little smiling leaf buddy drifts around the screen ("Click me! 👋").
+2. **Name** and **a few honest words**: not a therapist, privacy, memory on/off.
+3. **Check-in**: choose 3, 5 or 10 gentle questions (Often / Sometimes / Rarely /
+   Never). Every question is followed by its own small, uplifting note.
+4. **Well-Being Count (WBC)**: a 0–100 score with a friendly band (Blooming,
+   Growing, Sprouting, Needs gentle care). A reflection, not a diagnosis; the
+   companion keeps it in mind when you talk.
+5. **Voice key and microphone** (first time only).
+6. **Talk**: the voice orb, a session timer, and six mixable soundscapes
+   (Air, Rain, Birds, River, Bonfire, Fresh) that play softly under the
+   conversation and dip while Haven speaks. Haven's voice has a very light echo.
+
+Haven speaks slowly and softly in a calm voice you can choose in Settings
+(twelve gentle Gemini voices, each with a preview). Now and then, when it fits,
+it shares a short, verified quotation (Seneca, Frankl, Carl Rogers, Thich Nhat
+Hanh, Brené Brown and others, always credited), and it can draw on the key
+ideas of well-known wellbeing books summarised in `knowledge/sources`.
+
+Sign-in with Google will be added before any public release.
+
 ## How it works
 
 ```
@@ -51,7 +73,10 @@ free Gemini API key.
   tested against a 57-case evaluation set. Anything above LOW cuts off the
   current reply and re-steers the companion with guidance; HIGH/IMMEDIATE also
   shows a crisis card with tap-to-dial numbers for your region.
-- **RAG without the cloud.** Twelve original CC BY 4.0 psychoeducation
+- **Soundscapes are synthesised on the phone** (no recordings, no downloads)
+  and mixed with the companion's voice into one audio stream, so the phone's
+  echo canceller keeps them out of the microphone.
+- **RAG without the cloud.** Thirteen original CC BY 4.0 psychoeducation
   documents (`knowledge/sources`) ship inside the APK and are searched with
   BM25 when the companion wants grounded material.
 
@@ -94,7 +119,7 @@ cd android
 
 ## Status and limitations
 
-- The core logic has 41 JVM unit tests (including all 57 safety cases). The app
+- The core logic has 64 JVM unit tests (including all 57 safety cases). The app
   is built in CI; voice has not yet been tried on a real device, so expect
   some tuning (echo on loudspeaker in particular; headphones are best).
 - Gemini's free-tier limits are set per Google project and can change; if you

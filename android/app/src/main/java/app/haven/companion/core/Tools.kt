@@ -76,6 +76,13 @@ class Tools(private val repo: DataRepository, private val knowledge: KnowledgeBa
                     }
                 }
             }
+            "find_quote" -> buildJsonObject {
+                val found = Quotes.find(arg("theme"))
+                putJsonArray("quotes") {
+                    found.forEach { q -> add(buildJsonObject { put("text", q.text); put("author", q.author); put("source", q.source) }) }
+                }
+                if (found.isEmpty()) put("note", "No fitting quote. Carry on without one.")
+            }
             "retrieve_knowledge" -> buildJsonObject {
                 putJsonArray("passages") {
                     knowledge.retrieve(arg("query")).forEach { p ->
@@ -130,9 +137,15 @@ class Tools(private val repo: DataRepository, private val knowledge: KnowledgeBa
                 obj("about" to str("What should be forgotten"), required = listOf("about"))))
             add(fn("get_recent_conversation_summaries", "Brief notes from the user's last few conversations."))
             add(fn("get_user_profile", "The user's name, preferred name, timezone, language and communication preferences."))
+            add(fn("find_quote",
+                "Find a short, verified quotation (with author and source) that fits a feeling or theme, e.g. 'worry about " +
+                    "the future', 'self-criticism', 'hope'. Only ever quote what this returns.",
+                obj("theme" to str("The feeling or theme"), required = listOf("theme"))))
             add(fn("retrieve_knowledge",
                 "Search the curated psychoeducation library (CBT, ACT, behavioural activation, mindfulness, grounding, " +
-                    "sleep, motivation, loneliness, work stress, when to seek help) for grounded material on a topic.",
+                    "sleep, motivation, loneliness, work stress, when to seek help, and key ideas from well-known wellbeing books " +
+                    "such as Man's Search for Meaning, Feeling Good, Full Catastrophe Living, Self-Compassion, Flourish and " +
+                    "The Gifts of Imperfection) for grounded material on a topic.",
                 obj("query" to str("What to look up"), required = listOf("query"))))
         }
     }

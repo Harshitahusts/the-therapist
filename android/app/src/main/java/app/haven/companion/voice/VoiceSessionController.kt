@@ -12,6 +12,7 @@ import app.haven.companion.core.RiskLevel
 import app.haven.companion.core.Safety
 import app.haven.companion.core.Summarizer
 import app.haven.companion.core.Tools
+import app.haven.companion.core.Voices
 import app.haven.companion.core.VoicePhase
 import app.haven.companion.data.SecureStore
 import kotlinx.coroutines.CoroutineScope
@@ -43,6 +44,8 @@ data class VoiceUiState(
     val error: String? = null,
     val crisis: CrisisResources? = null,
     val muted: Boolean = false,
+    /** When the current conversation started (for the session timer), or null. */
+    val startedAt: Long? = null,
 )
 
 /**
@@ -56,6 +59,7 @@ class VoiceSessionController(
     private val store: SecureStore,
     private val knowledge: () -> KnowledgeBase,
     private val gemini: GeminiApi,
+    private val sound: SoundEngine,
 ) {
     private val _state = MutableStateFlow(VoiceUiState())
     val state: StateFlow<VoiceUiState> = _state
@@ -73,17 +77,20 @@ class VoiceSessionController(
     private var coordinator: LiveCoordinator? = null
     private var socket: WebSocket? = null
     private var mic: MicRecorder? = null
-    private var player: SpeakerPlayer? = null
     private var audio: AudioRouting? = null
     private var conversationId: String? = null
     private var reconnects = 0
+    private var liveModel = ""
+    private var instructions = ""
+    private var voiceInUse = Voices.DEFAULT
+    private var triedVoiceFallback = false
     private var maxLengthTimer: Job? = null
 
     val isActive: Boolean get() = _state.value.phase !in setOf(VoicePhase.IDLE, VoicePhase.ERROR)
 
     fun start() {
         if (isActive) return
-        _state.value = VoiceUiState(phase = VoicePhase.CONNECTING)
+        _state.value = VoiceUiState(phase = VoicePhase.CONNECTING, startedAt = System.currentTimeMillis())
         scope.launch {
             val key = store.apiKey
             val model = store.liveModel
@@ -93,11 +100,16 @@ class VoiceSessionController(
             }
             try {
                 val zone = runCatching { ZoneId.of(repo.data.profile.timezone) }.getOrDefault(ZoneId.systemDefault())
-                coordinator = LiveCoordinator(model, LiveCoordinator.buildInstructions(repo.data, ZonedDateTime.now(zone)))
+                liveModel = model
+                instructions = LiveCoordinator.buildInstructions(repo.data, ZonedDateTime.now(zone))
+                voiceInUse = Voices.find(store.voice).name
+                triedVoiceFallback = false
+                coordinator = LiveCoordinator(model, instructions, voiceInUse)
                 conversationId = repo.startConversation().id
                 reconnects = 0
                 audio = AudioRouting(context).also { it.start() }
-                player = SpeakerPlayer(onIdle = { scope.launch { coordinator?.let { handle(it.onPlaybackIdle()) } } })
+                sound.onVoiceIdle = { scope.launch { coordinator?.let { handle(it.onPlaybackIdle()) } } }
+                sound.setConversationMode(true)
                 open(key)
                 maxLengthTimer = scope.launch {
                     delay(MAX_CONVERSATION_MS)
@@ -185,6 +197,16 @@ class VoiceSessionController(
 
     private suspend fun connectionLost(code: Int, reason: String) {
         val c = coordinator ?: return
+        // Older Live models only know the classic voices: retry once with one of those.
+        if (!c.setupDone && voiceInUse !in Voices.CLASSIC && !triedVoiceFallback) {
+            triedVoiceFallback = true
+            voiceInUse = Voices.CLASSIC_FALLBACK
+            Log.i(TAG, "voice not accepted (code $code); retrying with a classic voice")
+            coordinator = LiveCoordinator(liveModel, instructions, voiceInUse)
+            socket = null
+            store.apiKey?.let { open(it) } ?: fail(NETWORK_ERROR)
+            return
+        }
         // Gemini rotates connections; resume the same session when we can.
         if (c.resumeHandle != null && reconnects < MAX_RECONNECTS && code != 1007 && code != 1008) {
             reconnects++
@@ -209,8 +231,8 @@ class VoiceSessionController(
         val c = coordinator ?: return
         for (e in effects) when (e) {
             is LiveEffect.Send -> socket?.send(e.json)
-            is LiveEffect.PlayAudio -> player?.enqueue(e.pcm)
-            LiveEffect.StopPlayback -> player?.flush()
+            is LiveEffect.PlayAudio -> sound.enqueueVoice(e.pcm)
+            LiveEffect.StopPlayback -> sound.flushVoice()
             is LiveEffect.Phase -> _state.update { it.copy(phase = e.phase) }
             is LiveEffect.Log -> Log.i(TAG, e.message)
             LiveEffect.Reconnect -> {
@@ -250,8 +272,8 @@ class VoiceSessionController(
         ws?.close(1000, null)
         mic?.stop()
         mic = null
-        player?.release()
-        player = null
+        sound.onVoiceIdle = null
+        sound.setConversationMode(false)
         audio?.stop()
         audio = null
         val crisis = _state.value.crisis

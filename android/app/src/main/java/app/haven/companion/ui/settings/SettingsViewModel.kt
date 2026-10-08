@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.haven.companion.AppContainer
 import app.haven.companion.core.CompanionData
 import app.haven.companion.core.GeminiException
+import app.haven.companion.core.Voices
 import app.haven.companion.voice.VoiceSessionController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,17 +19,23 @@ data class SettingsUiState(
     val data: CompanionData = CompanionData(),
     val autoStart: Boolean = true,
     val liveModel: String? = null,
+    val voice: String = Voices.DEFAULT,
+    val previewing: String? = null,
     val liveModels: List<String>? = null,
     val busy: Boolean = false,
     val message: String? = null,
 )
+
+private const val PREVIEW_LINE =
+    "Say softly, slowly and warmly, like a calm friend: Hi, I'm Haven. Let's take one slow breath together... " +
+        "It's really good to have you here."
 
 class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     private val _state = MutableStateFlow(snapshot())
     val state: StateFlow<SettingsUiState> = _state
 
     private fun snapshot(base: SettingsUiState = SettingsUiState()) =
-        base.copy(data = c.repo.data, autoStart = c.store.autoStart, liveModel = c.store.liveModel)
+        base.copy(data = c.repo.data, autoStart = c.store.autoStart, liveModel = c.store.liveModel, voice = Voices.find(c.store.voice).name)
 
     private fun refresh(message: String? = _state.value.message) = _state.update { snapshot(it).copy(message = message) }
 
@@ -69,7 +76,7 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
 
     fun forgetEverything() {
         c.repo.forgetEverything()
-        refresh("Done. I've forgotten everything you told me.")
+        refresh("Done. I've forgotten everything you told me, including your check-ins.")
     }
 
     fun changeKey(key: String) = launchAction {
@@ -87,6 +94,33 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
         refresh()
     }
 
+    fun setVoice(name: String) {
+        c.store.voice = name
+        refresh()
+    }
+
+    /** Plays a short sample of [name] through the speaker, using a Gemini text-to-speech model. */
+    fun previewVoice(name: String) {
+        val tts = c.store.ttsModel
+        if (tts == null) {
+            _state.update { it.copy(message = "Voice previews aren't available with this key. You'll hear the voice in your next conversation.") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(previewing = name, message = null) }
+            try {
+                val pcm = withContext(Dispatchers.IO) { c.gemini.speak(tts, name, PREVIEW_LINE) }
+                c.sound.enqueueVoice(pcm)
+            } catch (e: GeminiException) {
+                _state.update { it.copy(message = e.message) }
+            } catch (e: IOException) {
+                _state.update { it.copy(message = VoiceSessionController.NETWORK_ERROR) }
+            } finally {
+                _state.update { it.copy(previewing = null) }
+            }
+        }
+    }
+
     fun exportTo(write: (String) -> Unit) = launchAction {
         withContext(Dispatchers.IO) { write(c.repo.exportJson()) }
         refresh("Your data was exported.")
@@ -95,6 +129,7 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     /** Deletes all data, the Gemini key and settings: like a fresh install. */
     fun deleteEverything(onDone: () -> Unit) {
         c.voice.stop()
+        c.sound.setSounds(emptySet())
         c.repo.wipe()
         c.store.clearAll()
         refresh()

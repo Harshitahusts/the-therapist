@@ -5,6 +5,8 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -17,33 +19,48 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.haven.companion.ui.components.CrisisCard
-import app.haven.companion.ui.components.VoiceOrb
 import app.haven.companion.core.VoicePhase
+import app.haven.companion.core.audio.SoundId
+import app.haven.companion.ui.checkin.WbcPill
+import app.haven.companion.ui.components.CrisisCard
+import app.haven.companion.ui.components.LeafyBackground
+import app.haven.companion.ui.components.VoiceOrb
+import app.haven.companion.ui.theme.HavenColors
+import app.haven.companion.voice.SoundEngine
 import app.haven.companion.voice.VoiceSessionController
+import kotlinx.coroutines.delay
 import java.time.LocalTime
 
 fun greetingFor(hour: Int): String = when (hour) {
@@ -53,16 +70,27 @@ fun greetingFor(hour: Int): String = when (hour) {
     else -> "Hi"
 }
 
-/** The main screen: an orb, a status line, and nothing else to get in the way. */
+/** "4:12" style elapsed time for the session timer. */
+fun formatElapsed(ms: Long): String {
+    val s = (ms / 1000).coerceAtLeast(0)
+    return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, s / 60 % 60, s % 60) else "%d:%02d".format(s / 60, s % 60)
+}
+
+/** The talk screen: orb, status, session timer, and the soundscape mixer. */
 @Composable
 fun VoiceScreen(
     controller: VoiceSessionController,
+    sound: SoundEngine,
     preferredName: String?,
+    wbc: Int?,
     autoStart: Boolean,
     onAutoStarted: () -> Unit,
     onOpenSettings: () -> Unit,
+    onCheckIn: () -> Unit,
 ) {
     val state by controller.state.collectAsStateWithLifecycle()
+    val sounds by sound.sounds.collectAsStateWithLifecycle()
+    val volume by sound.volume.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var micDenied by remember { mutableStateOf(false) }
 
@@ -87,43 +115,51 @@ fun VoiceScreen(
     }
 
     val active = state.phase !in setOf(VoicePhase.IDLE, VoicePhase.ERROR)
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(active) {
+        while (active) {
+            now = System.currentTimeMillis()
+            delay(1000)
+        }
+    }
     val status = when (state.phase) {
-        VoicePhase.IDLE -> "Tap to talk"
-        VoicePhase.CONNECTING -> "Connecting…"
-        VoicePhase.LISTENING -> if (state.muted) "Muted" else "Listening…"
+        VoicePhase.IDLE -> "Tap me to talk"
+        VoicePhase.CONNECTING -> "Getting comfy…"
+        VoicePhase.LISTENING -> if (state.muted) "Muted" else "I'm listening…"
         VoicePhase.THINKING -> "Thinking…"
         VoicePhase.SPEAKING -> "Speaking…"
         VoicePhase.ERROR -> state.error ?: "Something went wrong. Tap to try again."
     }
 
-    Box(Modifier.fillMaxSize().systemBarsPadding()) {
-        IconButton(onClick = onOpenSettings, modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)) {
-            Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-
+    LeafyBackground {
         Column(
-            Modifier.fillMaxSize().padding(horizontal = 28.dp),
+            Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Haven", style = MaterialTheme.typography.headlineMedium, color = HavenColors.LeafDeep, modifier = Modifier.weight(1f))
+                WbcPill(wbc, onClick = { controller.stop(); onCheckIn() })
+                IconButton(onClick = onOpenSettings) {
+                    Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = HavenColors.InkSoft)
+                }
+            }
+
             AnimatedVisibility(visible = !active) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     val name = preferredName?.takeIf { it.isNotBlank() }
                     Text(
-                        greetingFor(LocalTime.now().hour) + (name?.let { ", $it." } ?: "."),
-                        style = MaterialTheme.typography.headlineMedium,
-                        textAlign = TextAlign.Center,
+                        greetingFor(LocalTime.now().hour) + (name?.let { ", $it" } ?: "") + " 🌿",
+                        style = MaterialTheme.typography.headlineMedium, color = HavenColors.Ink, textAlign = TextAlign.Center,
                     )
-                    Spacer(Modifier.height(6.dp))
-                    Text("How are you feeling?", style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(36.dp))
+                    Text("How are you feeling?", style = MaterialTheme.typography.titleMedium, color = HavenColors.InkSoft)
                 }
             }
 
             VoiceOrb(
                 phase = state.phase,
                 micLevel = if (state.muted) 0f else state.micLevel,
+                size = 210.dp,
                 modifier = Modifier
                     .semantics { contentDescription = if (active) status else "Start talking" }
                     .clickable(
@@ -133,42 +169,90 @@ fun VoiceScreen(
                     ) { talk() },
             )
 
-            Spacer(Modifier.height(28.dp))
             Text(
                 status,
                 style = MaterialTheme.typography.titleMedium,
-                color = if (state.phase == VoicePhase.ERROR) MaterialTheme.colorScheme.error
-                else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (state.phase == VoicePhase.ERROR) MaterialTheme.colorScheme.error else HavenColors.InkSoft,
                 textAlign = TextAlign.Center,
             )
-            if (micDenied) {
-                Spacer(Modifier.height(8.dp))
+            val started = state.startedAt
+            if (active && started != null) {
                 Text(
-                    "Haven needs the microphone to talk with you. You can allow it in Android Settings > Apps > Haven.",
-                    style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    "⏱ Talking for ${formatElapsed(now - started)}",
+                    style = MaterialTheme.typography.bodyMedium, color = HavenColors.InkSoft,
+                    modifier = Modifier.semantics { contentDescription = "Conversation length ${formatElapsed(now - started)}" },
                 )
             }
-            Spacer(Modifier.height(24.dp))
+            if (micDenied) {
+                Text(
+                    "Haven needs the microphone to talk with you. You can allow it in Android Settings > Apps > Haven.",
+                    style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, color = HavenColors.InkSoft,
+                )
+            }
             if (active) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     TextButton(onClick = { controller.setMuted(!state.muted) }) {
-                        Text(if (state.muted) "Unmute" else "Mute")
+                        Text(if (state.muted) "Unmute" else "Mute", color = HavenColors.LeafDeep)
                     }
-                    OutlinedButton(onClick = { controller.stop() }) { Text("End conversation") }
+                    OutlinedButton(onClick = { controller.stop() }, shape = RoundedCornerShape(50)) {
+                        Text("End conversation", color = HavenColors.LeafDeep)
+                    }
                 }
             }
-        }
 
-        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(16.dp)) {
             state.crisis?.let { CrisisCard(it, onDismiss = controller::dismissCrisisCard) }
+
+            SoundMixer(sounds, volume, onToggle = sound::toggle, onVolume = sound::setVolume)
+
             Text(
                 "AI wellbeing companion · not a therapist",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                color = HavenColors.InkSoft.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
             )
+        }
+    }
+}
+
+@Composable
+private fun SoundMixer(active: Set<SoundId>, volume: Float, onToggle: (SoundId) -> Unit, onVolume: (Float) -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().background(HavenColors.Card.copy(alpha = 0.85f), RoundedCornerShape(26.dp)).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("SOUNDSCAPE", style = MaterialTheme.typography.labelMedium, color = HavenColors.Leaf, modifier = Modifier.weight(1f))
+            Text(
+                if (active.isEmpty()) "Tap to mix" else SoundId.entries.filter { it in active }.joinToString(" + ") { it.label },
+                style = MaterialTheme.typography.bodyMedium, color = HavenColors.InkSoft,
+            )
+        }
+        SoundId.entries.chunked(3).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { id ->
+                    val on = id in active
+                    Surface(
+                        onClick = { onToggle(id) },
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (on) HavenColors.LeafLight.copy(alpha = 0.55f) else HavenColors.CardSoft,
+                        border = if (on) BorderStroke(1.5.dp, HavenColors.Leaf) else null,
+                        modifier = Modifier.weight(1f).semantics {
+                            stateDescription = if (on) "On" else "Off"
+                        },
+                    ) {
+                        Column(Modifier.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(id.emoji, fontSize = 24.sp)
+                            Text(id.label, style = MaterialTheme.typography.bodyMedium, color = if (on) HavenColors.LeafDeep else HavenColors.InkSoft)
+                        }
+                    }
+                }
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("🔈", fontSize = 16.sp)
+            Slider(value = volume, onValueChange = onVolume, modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
+            Text("🔊", fontSize = 16.sp)
         }
     }
 }
