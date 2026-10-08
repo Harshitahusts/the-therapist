@@ -47,18 +47,18 @@ class AppContainer(app: Application) {
     }
 
     val sound = SoundEngine()
-    val voice = VoiceSessionController(app, http, repo, store, { knowledge }, gemini, sound)
+    val voice = VoiceSessionController(app, http, repo, store, { knowledge }, gemini, sound, ensureModels = { ensureModels() })
 
     /**
      * Checks a Gemini API key, picks the voice and text models it can use, and saves it.
      * Returns null on success, or a message for the user.
      */
-    suspend fun connectGeminiKey(key: String): String? = withContext(Dispatchers.IO) {
+    suspend fun connectGeminiKey(key: String, save: Boolean = true): String? = withContext(Dispatchers.IO) {
         try {
             val models = gemini.listModels(key.trim())
             val live = GeminiApi.chooseLiveModel(models)
-                ?: return@withContext "This key works, but it can't use Gemini's live voice models yet. Try again later or create a new key in Google AI Studio."
-            store.apiKey = key.trim()
+                ?: return@withContext "This key works, but it can't use Gemini's live voice models yet. Try again later or use a different key."
+            if (save) store.apiKey = key.trim()
             store.liveModel = live
             store.textModel = GeminiApi.chooseTextModel(models)
             store.ttsModel = GeminiApi.chooseTtsModel(models)
@@ -68,6 +68,16 @@ class AppContainer(app: Application) {
         } catch (e: IOException) {
             VoiceSessionController.NETWORK_ERROR
         }
+    }
+
+    /**
+     * Makes sure voice and text models have been picked for the current key (the built-in one
+     * is checked lazily, on the first conversation). Returns null when ready, or a message.
+     */
+    suspend fun ensureModels(): String? {
+        if (!store.liveModel.isNullOrBlank()) return null
+        val key = store.apiKey ?: return "Haven's voice isn't set up in this build."
+        return connectGeminiKey(key, save = false)
     }
 
     /** Live (voice) models available to the saved key. */

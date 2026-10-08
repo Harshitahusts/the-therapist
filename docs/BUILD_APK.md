@@ -1,14 +1,28 @@
 # Getting and building the APK
 
-Haven needs **no build-time configuration**: no server URL, no keys. You paste
-your own free Gemini API key into the app on first launch.
+Haven's voice runs on Google Gemini with **one key that you, the app owner,
+provide**. It is built into the APK, so people using the app are never asked
+for a key.
 
-## 1. Get a free Gemini API key
+## 1. Add your Gemini key (once)
 
-1. Go to https://aistudio.google.com/apikey and sign in with a Google account.
-2. Click **Create API key** and copy it.
+1. Create a key at https://aistudio.google.com/apikey.
+2. In the GitHub repo: **Settings → Secrets and variables → Actions → Secrets →
+   New repository secret**. Name: `HAVEN_GEMINI_API_KEY`, value: your key.
+   Never paste the key into code, issues or chat.
+3. In Google Cloud Console (APIs & Services → Credentials → your key), restrict
+   the key to the **Generative Language API**, and set a quota or budget alert.
 
-Keep it private. Anyone with the key can use your Gemini quota.
+**Important:** a key built into an app can be extracted from the APK by anyone
+who has the file. Only share the APK with people you trust, and note that build
+artifacts of a **public** repository can be downloaded by any signed-in GitHub
+user; make the repository private if that matters. Before a public launch,
+switch to short-lived tokens issued by a small server.
+
+For local builds, put `HAVEN_GEMINI_API_KEY=...` in `android/local.properties`
+(git-ignored).
+
+If no key is built in, the app falls back to asking for one during setup.
 
 ## 2a. Download the APK from GitHub (no tools needed)
 
@@ -40,7 +54,7 @@ Requirements: Android Studio (or the Android SDK with platform 35) and JDK 17.
 
 ```bash
 cd android
-echo "sdk.dir=/path/to/Android/sdk" > local.properties
+printf "sdk.dir=/path/to/Android/sdk\nHAVEN_GEMINI_API_KEY=your-key\n" > local.properties
 ./gradlew testDebugUnitTest assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
@@ -52,9 +66,9 @@ it uses your computer's microphone).
 
 1. Read the intro, the "not a therapist" notice and the privacy summary.
 2. Enter your name and choose whether memory is on.
-3. Paste your Gemini key and tap **Check key and continue**. Haven checks the
-   key and picks the best live voice model it can use.
-4. Allow the microphone.
+3. Take the short check-in and see your Well-Being Count.
+4. Allow the microphone. (Haven picks the best Gemini voice model by itself on
+   the first conversation.)
 5. The voice screen greets you and starts listening (auto-start can be turned
    off in Settings). Tap **End conversation** to finish.
 

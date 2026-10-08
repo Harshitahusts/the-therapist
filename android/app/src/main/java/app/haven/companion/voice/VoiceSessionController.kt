@@ -60,6 +60,8 @@ class VoiceSessionController(
     private val knowledge: () -> KnowledgeBase,
     private val gemini: GeminiApi,
     private val sound: SoundEngine,
+    /** Picks the Gemini models on first use; returns null when ready or a message for the user. */
+    private val ensureModels: suspend () -> String?,
 ) {
     private val _state = MutableStateFlow(VoiceUiState())
     val state: StateFlow<VoiceUiState> = _state
@@ -93,11 +95,15 @@ class VoiceSessionController(
         _state.value = VoiceUiState(phase = VoicePhase.CONNECTING, startedAt = System.currentTimeMillis())
         scope.launch {
             val key = store.apiKey
-            val model = store.liveModel
-            if (key.isNullOrBlank() || model.isNullOrBlank()) {
-                fail("Add your Gemini API key in Settings to start talking.")
+            if (key.isNullOrBlank()) {
+                fail("Haven's voice isn't set up in this build.")
                 return@launch
             }
+            ensureModels()?.let { problem ->
+                fail(problem)
+                return@launch
+            }
+            val model = store.liveModel!!
             try {
                 val zone = runCatching { ZoneId.of(repo.data.profile.timezone) }.getOrDefault(ZoneId.systemDefault())
                 liveModel = model

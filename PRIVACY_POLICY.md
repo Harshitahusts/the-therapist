@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: 8 October 2026_
+_Last updated: 9 October 2026_
 
 Haven is a personal, non-profit project: an AI wellbeing and self-reflection
 companion for Android. It has **no server and no account**. This policy
@@ -10,7 +10,7 @@ explains what data the app handles, where it goes, and how you control it.
 
 - Everything Haven stores is kept **only on your phone**, encrypted.
 - To hold a conversation, your **voice** and the companion's context are sent
-  to **Google's Gemini API** using **your own API key**.
+  to **Google's Gemini API** using the app's API key.
 - **On Gemini's free tier, Google may use what you send to improve its
   products, and human reviewers may read it.** Avoid sharing details you
   wouldn't want reviewed.
@@ -21,7 +21,7 @@ explains what data the app handles, where it goes, and how you control it.
 
 | Data | Why |
 | --- | --- |
-| Your Gemini API key and the chosen models | To connect to Gemini |
+| The chosen Gemini models and voice (and a Gemini key, if you entered one) | To connect to Gemini |
 | Profile: name, preferred name, timezone, language | Greeting you, time-of-day awareness |
 | Settings: memory on/off, crisis-support region, auto-start | Respecting your choices; showing the right crisis numbers |
 | Conversation summaries (memory on) | Context for future conversations |
@@ -44,9 +44,9 @@ filtered out of anything Haven remembers.
 | When you add or change your key | A request listing the models your key can use |
 
 Google processes this under the Gemini API Additional Terms and Google's
-privacy policy. **For unpaid (free-tier) use, Google states that it may use
+privacy policy, on the Google project of whoever built this copy of the app. **For unpaid (free-tier) use, Google states that it may use
 submitted content to provide and improve its products, and that human
-reviewers may read, annotate and process it.** If you enable billing on your
+reviewers may read, annotate and process it.** If billing is enabled on that
 Google project, paid-tier terms apply instead. See
 ai.google.dev/gemini-api/terms.
 

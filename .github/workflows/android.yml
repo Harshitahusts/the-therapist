@@ -24,6 +24,9 @@ jobs:
       - name: Unit tests
         run: ./gradlew --no-daemon testDebugUnitTest
       - name: Build debug APK
+        env:
+          # The Gemini key the app talks with. Add it under Settings → Secrets and variables → Actions.
+          HAVEN_GEMINI_API_KEY: ${{ secrets.HAVEN_GEMINI_API_KEY }}
         run: ./gradlew --no-daemon assembleDebug
       - uses: actions/upload-artifact@v4
         with:
@@ -37,6 +40,7 @@ jobs:
           HAVEN_KEYSTORE_PASSWORD: ${{ secrets.HAVEN_KEYSTORE_PASSWORD }}
           HAVEN_KEY_ALIAS: ${{ secrets.HAVEN_KEY_ALIAS }}
           HAVEN_KEY_PASSWORD: ${{ secrets.HAVEN_KEY_PASSWORD }}
+          HAVEN_GEMINI_API_KEY: ${{ secrets.HAVEN_GEMINI_API_KEY }}
         run: |
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
           HAVEN_KEYSTORE_FILE="$RUNNER_TEMP/release.jks" ./gradlew --no-daemon assembleRelease

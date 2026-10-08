@@ -137,7 +137,7 @@ fun SettingsScreen(
             val region = state.data.settings.crisisRegion
             Item("Crisis support region", SUPPORTED_CRISIS_REGIONS[region] ?: region, onClick = { dialog = "region" })
             HorizontalDivider()
-            Item("Gemini API key", "Replace the key Haven uses", onClick = { newKey = ""; dialog = "key" })
+            if (!state.builtInKey) Item("Gemini API key", "Replace the key Haven uses", onClick = { newKey = ""; dialog = "key" })
             val voice = Voices.find(state.voice)
             Item("Haven's voice", "${voice.name} · ${voice.description}", onClick = { dialog = "voice" })
             Item("Voice model", state.liveModel ?: "Not set", onClick = { vm.loadLiveModels(); dialog = "model" })

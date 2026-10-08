@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
+import app.haven.companion.BuildConfig
 import app.haven.companion.core.Persistence
 
 private fun encryptedPrefs(context: Context, file: String): SharedPreferences {
@@ -32,9 +33,13 @@ private fun encryptedPrefs(context: Context, file: String): SharedPreferences {
 class SecureStore(context: Context) {
     private val prefs = encryptedPrefs(context, "haven_secure")
 
+    /** A key entered in Settings, otherwise the key built into the app. */
     var apiKey: String?
-        get() = prefs.getString("gemini_api_key", null)
+        get() = prefs.getString("gemini_api_key", null) ?: BUILT_IN_KEY
         set(v) = prefs.edit { putString("gemini_api_key", v) }
+
+    /** True when the app ships with its own Gemini key, so users are never asked for one. */
+    val hasBuiltInKey: Boolean get() = BUILT_IN_KEY != null
 
     var liveModel: String?
         get() = prefs.getString("live_model", null)
@@ -62,9 +67,13 @@ class SecureStore(context: Context) {
         get() = prefs.getBoolean("auto_start", true)
         set(v) = prefs.edit { putBoolean("auto_start", v) }
 
-    val isReady: Boolean get() = introCompleted && !apiKey.isNullOrBlank() && !liveModel.isNullOrBlank()
+    val isReady: Boolean get() = introCompleted && !apiKey.isNullOrBlank()
 
     fun clearAll() = prefs.edit { clear() }
+
+    private companion object {
+        val BUILT_IN_KEY: String? = BuildConfig.GEMINI_API_KEY.takeIf { it.isNotBlank() }
+    }
 }
 
 /** Holds Haven's data document (memories, summaries, profile…) encrypted on the device. */

@@ -64,7 +64,7 @@ const val DISCLAIMER =
 
 const val PRIVACY_SUMMARY =
     "Haven has no server and no account. Your memories, check-ins and conversation summaries are stored encrypted on " +
-        "this phone only.\n\nTo talk, your voice and words are sent to Google's Gemini API using your own free API key. " +
+        "this phone only.\n\nTo talk, your voice and words are sent to Google's Gemini API. " +
         "On Gemini's free tier, Google may use what you say to improve its products, and human reviewers may read it. " +
         "Please avoid sharing details you wouldn't want reviewed (full names, addresses, account numbers).\n\n" +
         "You can export or delete everything at any time in Settings."

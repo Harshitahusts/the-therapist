@@ -32,7 +32,7 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     var autoStartConsumed = false
 
     /** The intro was finished before but the key is missing (e.g. after replacing it failed). */
-    val resumeAtKey: Boolean get() = container.store.introCompleted
+    val resumeAtKey: Boolean get() = container.store.introCompleted && container.store.apiKey.isNullOrBlank()
 
     fun go(screen: Screen) {
         // Check-ins may have been forgotten in Settings meanwhile.
