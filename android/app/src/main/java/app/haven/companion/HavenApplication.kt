@@ -12,6 +12,7 @@ import app.haven.companion.voice.SoundEngine
 import app.haven.companion.voice.VoiceSessionController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import app.haven.companion.data.AppIdentityInterceptor
 import okhttp3.OkHttpClient
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -33,6 +34,7 @@ class AppContainer(val app: Application) {
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
+        .addInterceptor(AppIdentityInterceptor(app))
         .build()
     val store = SecureStore(app)
     val repo = DataRepository(EncryptedPersistence(app))

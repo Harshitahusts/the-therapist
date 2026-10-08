@@ -25,8 +25,8 @@ android {
         applicationId = "app.haven.companion"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 5
+        versionName = "0.5.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -55,16 +55,23 @@ android {
             applicationIdSuffix = ".debug"
             resValue("string", "app_name", "Haven (debug)")
         }
+        // The build to install and use: not debuggable, so its data can't be read over USB debugging.
+        // Signed with the release key when one is configured, otherwise with the build machine's debug key
+        // so it can still be sideloaded. (Code shrinking is switched on for the Play Store build.)
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             resValue("string", "app_name", "Haven")
-            if (cfg("HAVEN_KEYSTORE_FILE").isNotBlank()) {
-                signingConfig = signingConfigs.getByName("release")
+            signingConfig = if (cfg("HAVEN_KEYSTORE_FILE").isNotBlank()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
             }
         }
     }
+
+    // CI runs the on-device tests against the release build (-PhavenTestBuildType=release).
+    testBuildType = (findProperty("havenTestBuildType") as String?) ?: "debug"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -111,5 +118,4 @@ dependencies {
     androidTestImplementation(libs.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
-    debugImplementation(libs.compose.ui.test.manifest)
 }

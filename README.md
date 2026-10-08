@@ -85,7 +85,7 @@ Sign-in with Google will be added before any public release.
 1. **Add the Gemini key once** as the GitHub secret `HAVEN_GEMINI_API_KEY`
    (see [`docs/BUILD_APK.md`](docs/BUILD_APK.md)).
 2. **Get the APK**: on GitHub, open **Actions → Android → Run workflow**, then
-   download **haven-debug-apk** from the finished run.
+   download **haven-apk** from the finished run.
 3. Install it on your phone, open it, and follow the short intro.
 
 That's it. There is nothing to deploy.

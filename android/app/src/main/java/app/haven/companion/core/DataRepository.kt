@@ -68,6 +68,7 @@ class DataRepository(private val persistence: Persistence, private val clock: ()
                     createdAt = now,
                     updatedAt = now,
                 )
+                if (d.memories.size >= MAX_MEMORIES) throw MemoryRejected("full")
                 result = m to true
                 d.copy(memories = d.memories + m)
             }
@@ -94,13 +95,15 @@ class DataRepository(private val persistence: Persistence, private val clock: ()
         return exists
     }
 
-    /** "Forget everything about me": memories, conversation summaries and check-ins. */
-    fun forgetEverything() = update { it.copy(memories = emptyList(), summaries = emptyList(), checks = emptyList()) }
+    /** "Forget everything about me": memories, summaries, check-ins, conversation history and safety events. */
+    fun forgetEverything() = update {
+        it.copy(memories = emptyList(), summaries = emptyList(), checks = emptyList(), conversations = emptyList(), safetyEvents = emptyList())
+    }
 
     // --- conversations ---
     fun startConversation(): ConversationRecord {
         val c = ConversationRecord(id = UUID.randomUUID().toString(), startedAt = clock())
-        update { it.copy(conversations = it.conversations + c) }
+        update { it.copy(conversations = (it.conversations + c).takeLast(MAX_CONVERSATIONS)) }
         return c
     }
 
@@ -118,13 +121,13 @@ class DataRepository(private val persistence: Persistence, private val clock: ()
     }
 
     fun saveSummary(summary: ConversationSummary) = update { d ->
-        d.copy(summaries = d.summaries.filterNot { it.conversationId == summary.conversationId } + summary)
+        d.copy(summaries = (d.summaries.filterNot { it.conversationId == summary.conversationId } + summary).takeLast(MAX_SUMMARIES))
     }
 
     fun recentSummaries(limit: Int = 3): List<ConversationSummary> = data.summaries.sortedByDescending { it.createdAt }.take(limit)
 
     fun recordSafetyEvent(a: SafetyAssessment) = update {
-        it.copy(safetyEvents = it.safetyEvents + SafetyEventRecord(a.level.name, a.categories, clock()))
+        it.copy(safetyEvents = (it.safetyEvents + SafetyEventRecord(a.level.name, a.categories, clock())).takeLast(MAX_SAFETY_EVENTS))
     }
 
     // --- check-ins ---
@@ -145,5 +148,10 @@ class DataRepository(private val persistence: Persistence, private val clock: ()
     companion object {
         const val DEDUP_SIMILARITY = 0.8
         const val MAX_CHECKS = 100
+        // Everything lives in one encrypted document, so keep it bounded.
+        const val MAX_MEMORIES = 500
+        const val MAX_SUMMARIES = 200
+        const val MAX_CONVERSATIONS = 1000
+        const val MAX_SAFETY_EVENTS = 500
     }
 }
