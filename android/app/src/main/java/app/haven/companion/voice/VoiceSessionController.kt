@@ -87,8 +87,6 @@ class VoiceSessionController(
     private var voiceInUse = Voices.DEFAULT
     private var triedVoiceFallback = false
     private var maxLengthTimer: Job? = null
-    private var quietTicker: Job? = null
-    private var connectedAt = 0L
 
     val isActive: Boolean get() = _state.value.phase !in setOf(VoicePhase.IDLE, VoicePhase.ERROR)
 
@@ -122,14 +120,6 @@ class VoiceSessionController(
                 maxLengthTimer = scope.launch {
                     delay(MAX_CONVERSATION_MS)
                     teardown(summarize = true)
-                }
-                // Gentle check-ins when the user stays quiet (not while muted).
-                quietTicker = scope.launch {
-                    while (true) {
-                        delay(QUIET_TICK_MS)
-                        val c = coordinator ?: continue
-                        if (!_state.value.muted) handle(c.onTick())
-                    }
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "could not start conversation", e)
@@ -184,9 +174,7 @@ class VoiceSessionController(
         scope.launch {
             val c = coordinator ?: return@launch
             if (webSocket != socket) return@launch
-            val wasSetUp = c.setupDone
             handle(c.onServerMessage(text))
-            if (!wasSetUp && c.setupDone) connectedAt = System.currentTimeMillis()
             if (c.setupDone && mic == null) startMic()
         }
     }
@@ -201,7 +189,6 @@ class VoiceSessionController(
                 val current = _state.value.micLevel
                 val smoothed = current * 0.7f + level * 0.3f
                 if (kotlin.math.abs(smoothed - current) > 0.02f) _state.update { it.copy(micLevel = smoothed) }
-                if (level > SPEECH_LEVEL && !_state.value.muted) scope.launch { coordinator?.noteUserActivity() }
             },
         )
         m.muted = _state.value.muted
@@ -217,7 +204,7 @@ class VoiceSessionController(
     private suspend fun connectionLost(code: Int, reason: String) {
         val c = coordinator ?: return
         // Older Live models only know the classic voices: retry once with one of those.
-        if (!c.everConnected && voiceInUse !in Voices.CLASSIC && !triedVoiceFallback) {
+        if (!c.setupDone && voiceInUse !in Voices.CLASSIC && !triedVoiceFallback) {
             triedVoiceFallback = true
             voiceInUse = Voices.CLASSIC_FALLBACK
             Log.i(TAG, "voice not accepted (code $code); retrying with a classic voice")
@@ -228,7 +215,7 @@ class VoiceSessionController(
         }
         // The model itself wouldn't start: move on to the next best live model and remember it.
         val nextModel = store.liveFallbacks.firstOrNull()
-        if (!c.everConnected && nextModel != null) {
+        if (!c.setupDone && nextModel != null) {
             Log.i(TAG, "live model $liveModel did not start (code $code); trying $nextModel")
             store.liveFallbacks = store.liveFallbacks.drop(1)
             store.liveModel = nextModel
@@ -239,31 +226,14 @@ class VoiceSessionController(
             store.apiKey?.let { open(it) } ?: fail(NETWORK_ERROR)
             return
         }
-        // A connection that lived a while counts as healthy: give long conversations a fresh set of retries.
-        if (connectedAt > 0 && System.currentTimeMillis() - connectedAt > HEALTHY_CONNECTION_MS) reconnects = 0
-        // Gemini rotates connections; resume the same session when we can, otherwise restart it
-        // with a recap of what was said so the conversation carries on.
-        if (c.everConnected && reconnects < MAX_RECONNECTS && code != 1007 && code != 1008) {
+        // Gemini rotates connections; resume the same session when we can.
+        if (c.resumeHandle != null && reconnects < MAX_RECONNECTS && code != 1007 && code != 1008) {
             reconnects++
-            if (c.resumeHandle != null) reconnect() else restartWithRecap(c)
+            reconnect()
             return
         }
         Log.w(TAG, "connection closed: $code")
         fail(messageForClose(code, reason))
-    }
-
-    private fun restartWithRecap(old: LiveCoordinator) {
-        val key = store.apiKey ?: return
-        val said = old.transcript()
-        Log.i(TAG, "connection lost without a resume handle; restarting with a recap")
-        coordinator = LiveCoordinator(
-            liveModel, instructions + "\n\n" + LiveCoordinator.recap(said), voiceInUse,
-            continuing = true, priorTurns = said,
-        )
-        val prev = socket
-        socket = null
-        prev?.close(1000, null)
-        open(key)
     }
 
     private fun reconnect() {
@@ -312,8 +282,6 @@ class VoiceSessionController(
     private suspend fun teardown(summarize: Boolean, error: String? = null) {
         maxLengthTimer?.cancel()
         maxLengthTimer = null
-        quietTicker?.cancel()
-        quietTicker = null
         val transcript = coordinator?.transcript().orEmpty()
         val id = conversationId
         coordinator = null
@@ -362,12 +330,6 @@ class VoiceSessionController(
         private const val LIVE_URL =
             "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
         private const val MAX_RECONNECTS = 3
-        // Sessions resume across Gemini's connection rotations and compress old context, so a
-        // conversation can run as long as the person wants. This only guards against one left open.
-        private const val MAX_CONVERSATION_MS = 3L * 60 * 60 * 1000
-        private const val HEALTHY_CONNECTION_MS = 60_000L
-        private const val QUIET_TICK_MS = 2_000L
-        /** Microphone level that counts as the user speaking (0..1). */
-        private const val SPEECH_LEVEL = 0.15f
+        private const val MAX_CONVERSATION_MS = 50L * 60 * 1000
     }
 }
