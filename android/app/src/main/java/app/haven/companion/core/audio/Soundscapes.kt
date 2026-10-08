@@ -7,7 +7,7 @@ package app.haven.companion.core.audio
 enum class SoundId(val label: String, val emoji: String, /** Balances loudness between sounds. */ val level: Float) {
     AIR("Air", "🌬️", 2.0f),
     RAIN("Rain", "🌧️", 1.9f),
-    BIRDS("Birds", "🐦", 5.0f),
+    BIRDS("Birds", "🐦", 6.5f),
     RIVER("River", "🏞️", 2.3f),
     BONFIRE("Bonfire", "🔥", 1.2f),
     FRESH("Fresh", "🌿", 2.3f),
@@ -98,22 +98,71 @@ class Rain(sr: Float, seed: Int) : Soundscape(sr, seed) {
     }
 }
 
-/** Birdsong: short phrases from two kinds of bird, with natural pauses, over a faint breeze. */
+/**
+ * Birdsong: a little dawn chorus. Six kinds of bird sing on their own schedules
+ * (so they overlap naturally), each phrase at a random distance, over a faint breeze:
+ * - warbler: quick rising notes
+ * - whistler: slower falling whistles
+ * - tit: a two-note "tee-tuu"
+ * - finch: tiny, very high "tsip-tsip" chirps, only a few hundredths of a second each
+ * - trill: a fast, shimmering run of high notes
+ * - dove: a soft, low "hoo-hoo" now and then
+ */
 class Birds(sr: Float, seed: Int) : Soundscape(sr, seed) {
     private val bed = PinkNoise(rng)
     private val lp = Biquad(sr).lowpass(900f)
-    private val phrases = Every(1.6f, 5.2f) {
-        val warbler = rng.chance(0.5f)
-        val notes = 2 + (rng.next() * 5).toInt()
-        val base = if (warbler) 3200f else 2300f
-        for (k in 0 until notes) {
-            val f = base + rng.range(0f, 900f)
-            if (warbler) blips += Blip(sampleRate, f, f * 1.45f, 0.07f, 0.09f, k * 0.11f)
-            else blips += Blip(sampleRate, f * 1.3f, f * 0.85f, 0.13f, 0.08f, k * 0.19f)
+
+    /** Near birds are louder; far ones are quieter. */
+    private fun distance() = rng.range(0.35f, 1.0f)
+
+    private val warbler = Every(2.5f, 7f) {
+        val near = distance()
+        repeat(2 + (rng.next() * 5).toInt()) { k ->
+            val f = rng.range(3200f, 4100f)
+            blips += Blip(sampleRate, f, f * 1.45f, 0.07f, 0.09f * near, k * 0.11f)
         }
     }
+    private val whistler = Every(3f, 8f) {
+        val near = distance()
+        repeat(2 + (rng.next() * 3).toInt()) { k ->
+            val f = rng.range(2300f, 3200f)
+            blips += Blip(sampleRate, f * 1.3f, f * 0.85f, 0.13f, 0.08f * near, k * 0.19f)
+        }
+    }
+    private val tit = Every(4f, 10f) {
+        val near = distance()
+        val hi = rng.range(2900f, 3400f)
+        repeat(2 + (rng.next() * 2).toInt()) { k ->
+            blips += Blip(sampleRate, hi, hi * 0.97f, 0.22f, 0.06f * near, k * 0.55f)
+            blips += Blip(sampleRate, hi * 0.78f, hi * 0.76f, 0.22f, 0.055f * near, k * 0.55f + 0.26f)
+        }
+    }
+    private val finch = Every(1.2f, 4f) {
+        val near = distance()
+        val f = rng.range(6200f, 8200f)
+        repeat(3 + (rng.next() * 6).toInt()) { k ->
+            val jitter = rng.range(0.94f, 1.06f)
+            blips += Blip(sampleRate, f * jitter, f * jitter * 1.12f, rng.range(0.015f, 0.03f), 0.07f * near, k * rng.range(0.06f, 0.09f))
+        }
+    }
+    private val trill = Every(5f, 12f) {
+        val near = distance()
+        val f = rng.range(4300f, 5200f)
+        val notes = 12 + (rng.next() * 9).toInt()
+        repeat(notes) { k ->
+            val wobble = 1f + 0.04f * kotlin.math.sin(k * 1.3f)
+            blips += Blip(sampleRate, f * wobble, f * wobble * 1.08f, 0.03f, 0.05f * near, k * 0.042f)
+        }
+    }
+    private val dove = Every(9f, 18f) {
+        val near = distance()
+        val f = rng.range(560f, 680f)
+        blips += Blip(sampleRate, f, f * 1.05f, 0.45f, 0.05f * near)
+        blips += Blip(sampleRate, f * 0.92f, f * 0.9f, 0.6f, 0.06f * near, 0.55f)
+    }
+
     override fun next(): Float {
-        phrases.tick()
+        warbler.tick(); whistler.tick(); tit.tick(); finch.tick(); trill.tick(); dove.tick()
         return lp.process(bed.next()) * 0.07f + renderBlips()
     }
 }

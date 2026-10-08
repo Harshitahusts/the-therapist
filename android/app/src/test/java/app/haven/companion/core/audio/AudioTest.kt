@@ -54,6 +54,23 @@ class AudioTest {
     }
 
     @Test
+    fun birdsIncludeTinyHighChirpsAndLowCoos() {
+        val s = Soundscape.create(SoundId.BIRDS, sr)
+        val hp = Biquad(sr).highpass(5000f)
+        val lpLow = Biquad(sr).lowpass(800f)
+        var highWindows = 0; var lowPeak = 0f; var e = 0.0
+        for (i in 0 until 24_000 * 40) {
+            val x = s.next()
+            val y = hp.process(x)
+            lowPeak = maxOf(lowPeak, abs(lpLow.process(x)))
+            e += y * y
+            if (i % 2400 == 2399) { if (sqrt(e / 2400) > 0.01) highWindows++; e = 0.0 }
+        }
+        assertTrue("high finch chirps present: $highWindows", highWindows >= 5)
+        assertTrue("low dove coo present: $lowPeak", lowPeak > 0.03f)
+    }
+
+    @Test
     fun echoRepeatsTheVoiceQuietlyAfterTheDelay() {
         val echo = Echo(sr, delaySec = 0.1f, feedback = 0.25f, wet = 0.2f)
         val out = FloatArray(12_000) { i -> echo.process(if (i == 0) 1f else 0f) }
