@@ -111,6 +111,19 @@ class LiveHarness(
         repeat(50) { ws.send(coordinator.audioMessage(silence)); Thread.sleep(40) } // 2 s of quiet
     }
 
+    /** Sends typed text as the user's turn (no speech synthesis needed). */
+    fun say(text: String) { ws.send(LiveCoordinator.textMessage(text)) }
+
+    /** The speaker finished playing what Haven said. */
+    fun playbackIdle() = handle(coordinator.onPlaybackIdle())
+
+    /** One tick of the quiet-user timer; true if it nudged Haven. */
+    fun tick(): Boolean {
+        val effects = coordinator.onTick()
+        handle(effects)
+        return effects.any { it is LiveEffect.Send }
+    }
+
     override fun close() {
         ws.close(1000, null)
         client.dispatcher.executorService.shutdown()

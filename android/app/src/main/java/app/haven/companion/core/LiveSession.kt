@@ -42,6 +42,11 @@ class LiveCoordinator(
     private val model: String,
     private val instructions: String,
     private val voice: String = DEFAULT_VOICE,
+    private val clock: () -> Long = System::currentTimeMillis,
+    /** True when this replaces a dropped session mid-conversation: don't greet again, just carry on. */
+    continuing: Boolean = false,
+    /** What was said before the connection was replaced, so the summary covers the whole conversation. */
+    priorTurns: List<TranscriptTurn> = emptyList(),
 ) {
     var phase: VoicePhase = VoicePhase.CONNECTING
         private set
@@ -53,13 +58,22 @@ class LiveCoordinator(
     var setupDone = false
         private set
 
-    private var greeted = false
+    /** True once any connection of this session has been set up (stays true across reconnects). */
+    var everConnected = false
+        private set
+
+    private var greeted = continuing
+    private var needsResumeCue = continuing
+
+    // Gentle check-ins when the user stays quiet after the companion has finished speaking.
+    private var quietSince: Long? = null
+    private var quietNudges = 0
     private var modelTurnActive = false
     private var dropAudio = false
     private var turnDone = true
     private val pendingTools = mutableSetOf<String>()
 
-    private val turns = mutableListOf<TranscriptTurn>()
+    private val turns = priorTurns.toMutableList()
     private val userBuf = StringBuilder()
     private val assistantBuf = StringBuilder()
 
@@ -113,9 +127,14 @@ class LiveCoordinator(
 
         if ("setupComplete" in msg) {
             setupDone = true
+            everConnected = true
             if (!greeted) {
                 greeted = true
                 out += LiveEffect.Send(textMessage(Prompts.OPENING_CUE))
+                setPhase(VoicePhase.THINKING, out)
+            } else if (needsResumeCue) {
+                needsResumeCue = false
+                out += LiveEffect.Send(textMessage(Prompts.RESUME_CUE))
                 setPhase(VoicePhase.THINKING, out)
             } else {
                 setPhase(VoicePhase.LISTENING, out)
@@ -152,6 +171,7 @@ class LiveCoordinator(
     private fun handleContent(c: JsonObject, out: MutableList<LiveEffect>) {
         (c["inputTranscription"] as? JsonObject)?.let { t ->
             (t["text"] as? JsonPrimitive)?.contentOrNull?.let { text ->
+                noteUserActivity()
                 if (assistantBuf.isNotBlank()) finishAssistantTurn()
                 userBuf.append(text)
                 if (!modelTurnActive) setPhase(VoicePhase.LISTENING, out)
@@ -235,6 +255,36 @@ class LiveCoordinator(
         return out
     }
 
+    /** The user is speaking (heard on the microphone or transcribed): reset the quiet timer. */
+    fun noteUserActivity() {
+        quietSince = null
+        quietNudges = 0
+    }
+
+    /**
+     * Called every couple of seconds. If the user stays quiet after the companion has finished
+     * speaking, nudge the companion once to make things easier (a smaller question, no pressure),
+     * and once more later to simply offer quiet company. Then wait for the user.
+     */
+    fun onTick(): List<LiveEffect> {
+        val waiting = setupDone && phase == VoicePhase.LISTENING && turnDone && pendingTools.isEmpty() && userBuf.isBlank()
+        if (!waiting) {
+            if (phase != VoicePhase.LISTENING) quietSince = null
+            return emptyList()
+        }
+        val now = clock()
+        val since = quietSince ?: run { quietSince = now; return emptyList() }
+        if (quietNudges >= 2) return emptyList()
+        val wait = if (quietNudges == 0) FIRST_QUIET_NUDGE_MS else SECOND_QUIET_NUDGE_MS
+        if (now - since < wait) return emptyList()
+        quietNudges++
+        quietSince = null
+        val out = mutableListOf<LiveEffect>()
+        out += LiveEffect.Send(textMessage(if (quietNudges == 1) Prompts.QUIET_CUE else Prompts.STILL_QUIET_CUE))
+        setPhase(VoicePhase.THINKING, out)
+        return out
+    }
+
     /** Called when a connection is replaced; the session itself continues. */
     fun onReconnecting() {
         setupDone = false
@@ -260,11 +310,28 @@ class LiveCoordinator(
         if (phase != p) {
             phase = p
             out += LiveEffect.Phase(p)
+            if (p != VoicePhase.LISTENING) quietSince = null
         }
     }
 
     companion object {
         const val DEFAULT_VOICE = "Aoede"
+
+        /** Quiet time after the companion finishes before it gently makes things easier. */
+        const val FIRST_QUIET_NUDGE_MS = 20_000L
+        /** Further quiet time before it simply offers to sit quietly together (last nudge). */
+        const val SECOND_QUIET_NUDGE_MS = 45_000L
+
+        /**
+         * The conversation so far, for a session that had to be restarted without a resume handle.
+         * Keeps the most recent part when long.
+         */
+        fun recap(turns: List<TranscriptTurn>, maxChars: Int = 6_000): String {
+            if (turns.isEmpty()) return ""
+            val lines = turns.joinToString("\n") { t -> (if (t.role == "user") "User: " else "You: ") + t.text }.takeLast(maxChars)
+            return "# This conversation so far\nThe connection dropped and was restored. Here is what was said, most recent last. " +
+                "Carry on naturally from here; do not greet again.\n" + lines
+        }
 
         /** Text input during a live session (used for the opening cue and safety guidance). */
         fun textMessage(text: String): String = buildJsonObject {
