@@ -75,3 +75,8 @@ and reflection. No book text beyond these short quotations is included.
 | `android/app/src/main/assets/sounds/birds_song.ogg` | Mixkit, "Forest birds singing" (#1212) | Mixkit Sound Effects Free License | Converted, normalised and faded; played at varying pitch and level within the Birds soundscape |
 
 All other soundscapes are synthesised in code.
+
+## Voice preview clips
+
+`android/app/src/main/assets/voices/*.ogg` are short greetings ("Hi, I'm Haven…") generated for this project
+with Google's Gemini text-to-speech prebuilt voices, so Settings can preview each voice without a network call.

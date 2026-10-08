@@ -27,7 +27,7 @@ class HavenApplication : Application() {
     }
 }
 
-class AppContainer(app: Application) {
+class AppContainer(val app: Application) {
     val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
