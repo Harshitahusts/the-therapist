@@ -41,7 +41,7 @@ fun CrisisCard(resources: CrisisResources, onDismiss: () -> Unit, modifier: Modi
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = HavenColors.SurfaceRaised),
+        colors = CardDefaults.cardColors(containerColor = HavenColors.Card),
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("You deserve support right now", style = MaterialTheme.typography.titleMedium)

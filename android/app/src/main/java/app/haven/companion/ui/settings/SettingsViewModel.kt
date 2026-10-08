@@ -69,7 +69,7 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
 
     fun forgetEverything() {
         c.repo.forgetEverything()
-        refresh("Done. I've forgotten everything you told me.")
+        refresh("Done. I've forgotten everything you told me, including your check-ins.")
     }
 
     fun changeKey(key: String) = launchAction {
@@ -95,6 +95,7 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     /** Deletes all data, the Gemini key and settings: like a fresh install. */
     fun deleteEverything(onDone: () -> Unit) {
         c.voice.stop()
+        c.sound.setSounds(emptySet())
         c.repo.wipe()
         c.store.clearAll()
         refresh()

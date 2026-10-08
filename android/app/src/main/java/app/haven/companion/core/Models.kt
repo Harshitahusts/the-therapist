@@ -72,6 +72,8 @@ data class CompanionData(
     val summaries: List<ConversationSummary> = emptyList(),
     val conversations: List<ConversationRecord> = emptyList(),
     val safetyEvents: List<SafetyEventRecord> = emptyList(),
+    /** Wellbeing check-ins, oldest first. */
+    val checks: List<WellbeingCheck> = emptyList(),
 )
 
 @Serializable

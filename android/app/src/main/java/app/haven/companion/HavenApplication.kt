@@ -7,6 +7,7 @@ import app.haven.companion.core.GeminiException
 import app.haven.companion.core.KnowledgeBase
 import app.haven.companion.data.EncryptedPersistence
 import app.haven.companion.data.SecureStore
+import app.haven.companion.voice.SoundEngine
 import app.haven.companion.voice.VoiceSessionController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -45,7 +46,8 @@ class AppContainer(app: Application) {
         )
     }
 
-    val voice = VoiceSessionController(app, http, repo, store, { knowledge }, gemini)
+    val sound = SoundEngine()
+    val voice = VoiceSessionController(app, http, repo, store, { knowledge }, gemini, sound)
 
     /**
      * Checks a Gemini API key, picks the voice and text models it can use, and saves it.

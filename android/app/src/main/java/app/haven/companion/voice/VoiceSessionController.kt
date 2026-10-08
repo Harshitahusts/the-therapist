@@ -43,6 +43,8 @@ data class VoiceUiState(
     val error: String? = null,
     val crisis: CrisisResources? = null,
     val muted: Boolean = false,
+    /** When the current conversation started (for the session timer), or null. */
+    val startedAt: Long? = null,
 )
 
 /**
@@ -56,6 +58,7 @@ class VoiceSessionController(
     private val store: SecureStore,
     private val knowledge: () -> KnowledgeBase,
     private val gemini: GeminiApi,
+    private val sound: SoundEngine,
 ) {
     private val _state = MutableStateFlow(VoiceUiState())
     val state: StateFlow<VoiceUiState> = _state
@@ -73,7 +76,6 @@ class VoiceSessionController(
     private var coordinator: LiveCoordinator? = null
     private var socket: WebSocket? = null
     private var mic: MicRecorder? = null
-    private var player: SpeakerPlayer? = null
     private var audio: AudioRouting? = null
     private var conversationId: String? = null
     private var reconnects = 0
@@ -83,7 +85,7 @@ class VoiceSessionController(
 
     fun start() {
         if (isActive) return
-        _state.value = VoiceUiState(phase = VoicePhase.CONNECTING)
+        _state.value = VoiceUiState(phase = VoicePhase.CONNECTING, startedAt = System.currentTimeMillis())
         scope.launch {
             val key = store.apiKey
             val model = store.liveModel
@@ -97,7 +99,8 @@ class VoiceSessionController(
                 conversationId = repo.startConversation().id
                 reconnects = 0
                 audio = AudioRouting(context).also { it.start() }
-                player = SpeakerPlayer(onIdle = { scope.launch { coordinator?.let { handle(it.onPlaybackIdle()) } } })
+                sound.onVoiceIdle = { scope.launch { coordinator?.let { handle(it.onPlaybackIdle()) } } }
+                sound.setConversationMode(true)
                 open(key)
                 maxLengthTimer = scope.launch {
                     delay(MAX_CONVERSATION_MS)
@@ -209,8 +212,8 @@ class VoiceSessionController(
         val c = coordinator ?: return
         for (e in effects) when (e) {
             is LiveEffect.Send -> socket?.send(e.json)
-            is LiveEffect.PlayAudio -> player?.enqueue(e.pcm)
-            LiveEffect.StopPlayback -> player?.flush()
+            is LiveEffect.PlayAudio -> sound.enqueueVoice(e.pcm)
+            LiveEffect.StopPlayback -> sound.flushVoice()
             is LiveEffect.Phase -> _state.update { it.copy(phase = e.phase) }
             is LiveEffect.Log -> Log.i(TAG, e.message)
             LiveEffect.Reconnect -> {
@@ -250,8 +253,8 @@ class VoiceSessionController(
         ws?.close(1000, null)
         mic?.stop()
         mic = null
-        player?.release()
-        player = null
+        sound.onVoiceIdle = null
+        sound.setConversationMode(false)
         audio?.stop()
         audio = null
         val crisis = _state.value.crisis

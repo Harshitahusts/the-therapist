@@ -143,7 +143,7 @@ fun SettingsScreen(
                 onClick = { exportLauncher.launch("haven-export.json") })
             Item("Privacy & disclaimer", onClick = onOpenPrivacy)
             HorizontalDivider()
-            Item("Forget everything about me", "Deletes all memories and conversation summaries",
+            Item("Forget everything about me", "Deletes all memories, conversation summaries and check-ins",
                 color = HavenColors.Danger, onClick = { dialog = "forget" })
             Item("Delete everything", "All data, your Gemini key and settings. Like a fresh install.",
                 color = HavenColors.Danger, onClick = { dialog = "wipe" })
