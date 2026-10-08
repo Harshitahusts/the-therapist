@@ -21,6 +21,7 @@ data class SettingsUiState(
     val liveModel: String? = null,
     val voice: String = Voices.DEFAULT,
     val previewing: String? = null,
+    val builtInKey: Boolean = false,
     val liveModels: List<String>? = null,
     val busy: Boolean = false,
     val message: String? = null,
@@ -35,7 +36,8 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     val state: StateFlow<SettingsUiState> = _state
 
     private fun snapshot(base: SettingsUiState = SettingsUiState()) =
-        base.copy(data = c.repo.data, autoStart = c.store.autoStart, liveModel = c.store.liveModel, voice = Voices.find(c.store.voice).name)
+        base.copy(data = c.repo.data, autoStart = c.store.autoStart, liveModel = c.store.liveModel, voice = Voices.find(c.store.voice).name,
+            builtInKey = c.store.hasBuiltInKey)
 
     private fun refresh(message: String? = _state.value.message) = _state.update { snapshot(it).copy(message = message) }
 
@@ -85,6 +87,7 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     fun loadLiveModels() = launchAction {
+        c.ensureModels()?.let { throw GeminiException(400, it) }
         val models = c.liveModels()
         _state.update { it.copy(liveModels = models) }
     }
@@ -101,12 +104,17 @@ class SettingsViewModel(private val c: AppContainer) : ViewModel() {
 
     /** Plays a short sample of [name] through the speaker, using a Gemini text-to-speech model. */
     fun previewVoice(name: String) {
+        viewModelScope.launch { previewVoiceAfterSetup(name) }
+    }
+
+    private suspend fun previewVoiceAfterSetup(name: String) {
+        c.ensureModels()
         val tts = c.store.ttsModel
         if (tts == null) {
-            _state.update { it.copy(message = "Voice previews aren't available with this key. You'll hear the voice in your next conversation.") }
+            _state.update { it.copy(message = "Voice previews aren't available right now. You'll hear the voice in your next conversation.") }
             return
         }
-        viewModelScope.launch {
+        run {
             _state.update { it.copy(previewing = name, message = null) }
             try {
                 val pcm = withContext(Dispatchers.IO) { c.gemini.speak(tts, name, PREVIEW_LINE) }

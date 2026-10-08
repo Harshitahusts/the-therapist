@@ -14,8 +14,8 @@ toward real human help when things are serious.
 Open app → "Good evening, Harshit. How are you feeling?" → you talk → it listens → it replies
 ```
 
-No chat screen, no typing box, no account, no server. Just an APK and your own
-free Gemini API key.
+No chat screen, no typing box, no account, no server. Just an APK, with the app
+owner's Gemini API key built in (see `docs/BUILD_APK.md`).
 
 ## The journey
 
@@ -26,7 +26,7 @@ free Gemini API key.
 4. **Well-Being Count (WBC)**: a 0–100 score with a friendly band (Blooming,
    Growing, Sprouting, Needs gentle care). A reflection, not a diagnosis; the
    companion keeps it in mind when you talk.
-5. **Voice key and microphone** (first time only).
+5. **Microphone** (first time only).
 6. **Talk**: the voice orb, a session timer, and six mixable soundscapes
    (Air, Rain, Birds, River, Bonfire, Fresh) that play softly under the
    conversation and dip while Haven speaks. Haven's voice has a very light echo.
@@ -54,7 +54,7 @@ Sign-in with Google will be added before any public release.
  └────────────────────────────────┬─────────────────────────────────────────┘
                                   │ WebSocket (audio in/out, tool calls)
                                   ▼
-                 Google Gemini Live API  (your own free API key)
+                 Google Gemini Live API  (the app owner's key, built in)
                  + one Gemini text call per conversation for the summary
 ```
 
@@ -73,7 +73,7 @@ Sign-in with Google will be added before any public release.
   tested against a 57-case evaluation set. Anything above LOW cuts off the
   current reply and re-steers the companion with guidance; HIGH/IMMEDIATE also
   shows a crisis card with tap-to-dial numbers for your region.
-- **Soundscapes are synthesised on the phone** (no recordings, no downloads)
+- **Soundscapes are synthesised on the phone** (Birds uses real forest recordings from Mixkit; nothing is downloaded)
   and mixed with the companion's voice into one audio stream, so the phone's
   echo canceller keeps them out of the microphone.
 - **RAG without the cloud.** Thirteen original CC BY 4.0 psychoeducation
@@ -82,11 +82,11 @@ Sign-in with Google will be added before any public release.
 
 ## Get it running
 
-1. **Get a free Gemini API key**: https://aistudio.google.com/apikey → *Create API key*.
-2. **Get the APK**: on GitHub, open **Actions → Android**, pick the latest
-   green run, and download **haven-debug-apk** (or build it yourself; see
-   [`docs/BUILD_APK.md`](docs/BUILD_APK.md)).
-3. Install it on your phone, open it, follow the short intro, and paste your key.
+1. **Add the Gemini key once** as the GitHub secret `HAVEN_GEMINI_API_KEY`
+   (see [`docs/BUILD_APK.md`](docs/BUILD_APK.md)).
+2. **Get the APK**: on GitHub, open **Actions → Android → Run workflow**, then
+   download **haven-debug-apk** from the finished run.
+3. Install it on your phone, open it, and follow the short intro.
 
 That's it. There is nothing to deploy.
 
@@ -94,7 +94,7 @@ That's it. There is nothing to deploy.
 
 Nothing is stored anywhere except your phone. To talk, your voice and the
 companion's context (your name, relevant memories, recent summaries) are sent to
-Google's Gemini API with your key. **On Gemini's free tier, Google may use that
+Google's Gemini API with the app's key. **On Gemini's free tier, Google may use that
 content to improve its products and human reviewers may read it.** Haven says
 so during onboarding. See [`PRIVACY_POLICY.md`](PRIVACY_POLICY.md).
 

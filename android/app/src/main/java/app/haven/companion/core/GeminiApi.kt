@@ -142,16 +142,22 @@ class GeminiApi(
         private fun versionOf(id: String): Double =
             Regex("""gemini-(\d+(?:\.\d+)?)""").find(id)?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
 
-        /** Picks the newest live (speech-to-speech) model, avoiding slower "thinking" and translation variants. */
-        fun chooseLiveModel(models: List<GeminiModel>): String? {
-            val live = models.filter { "bidiGenerateContent" in it.supportedGenerationMethods }
-                .filterNot { m -> listOf("thinking", "translate").any { it in m.id } }
-            return live.sortedWith(
-                compareByDescending<GeminiModel> { versionOf(it.id) }
-                    .thenByDescending { "native-audio" in it.id || "live" in it.id }
-                    .thenByDescending { it.id }
-            ).firstOrNull()?.id
-        }
+        /**
+         * Live (speech-to-speech) models suitable for conversation, best first: newest version,
+         * skipping slower "thinking" variants and special-purpose ones (translation, transcription, robotics).
+         */
+        fun rankLiveModels(models: List<GeminiModel>): List<String> =
+            models.filter { "bidiGenerateContent" in it.supportedGenerationMethods }
+                .filterNot { m -> listOf("thinking", "translate", "transcribe", "robotics", "embedding").any { it in m.id } }
+                .sortedWith(
+                    compareByDescending<GeminiModel> { versionOf(it.id) }
+                        .thenByDescending { "native-audio" in it.id || "live" in it.id }
+                        .thenByDescending { !it.id.contains("preview") }
+                        .thenByDescending { it.id }
+                )
+                .map { it.id }
+
+        fun chooseLiveModel(models: List<GeminiModel>): String? = rankLiveModels(models).firstOrNull()
 
         /** Picks a fast, generally available text model for end-of-conversation summaries. */
         fun chooseTextModel(models: List<GeminiModel>): String? {

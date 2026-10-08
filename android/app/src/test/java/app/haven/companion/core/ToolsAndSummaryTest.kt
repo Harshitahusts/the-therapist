@@ -89,6 +89,16 @@ class ToolsAndSummaryTest {
             m("text-embedding-004", "embedContent"),
         )
         assertEquals("gemini-3.1-flash-live-preview", GeminiApi.chooseLiveModel(models))
+        // The real model list from a free key: skip transcription, robotics, translation and thinking variants.
+        val real = listOf(
+            "gemini-3.5-transcribe-live", "gemini-2.5-flash-native-audio-latest", "gemini-2.5-flash-native-audio-preview-09-2025",
+            "gemini-2.5-flash-native-audio-preview-12-2025", "gemini-3.1-flash-live-preview", "gemini-3.8-live",
+            "gemini-3.8-live-extended-thinking", "gemini-robotics-er-2-streaming-preview", "gemini-3.5-live-translate-preview",
+        ).map { m(it, "bidiGenerateContent") }
+        val ranked = GeminiApi.rankLiveModels(real)
+        assertEquals("gemini-3.8-live", ranked.first())
+        assertEquals("gemini-3.1-flash-live-preview", ranked[1])
+        assertTrue(ranked.none { "transcribe" in it || "robotics" in it || "translate" in it || "thinking" in it })
         assertEquals("gemini-2.5-flash", GeminiApi.chooseTextModel(models))
         assertEquals(null, GeminiApi.chooseLiveModel(models.filter { "bidi" !in it.supportedGenerationMethods.joinToString() }))
         assertEquals("That Gemini API key isn't valid.", GeminiApi.describeError(400, """{"reason":"API_KEY_INVALID"}"""))

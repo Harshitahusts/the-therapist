@@ -12,8 +12,8 @@ val localProps = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 
-// Release signing only. The app needs no build-time configuration: the user enters
-// their own Gemini API key on first launch.
+// Release signing, plus the Gemini API key the app talks with (HAVEN_GEMINI_API_KEY,
+// from local.properties or the CI secret of that name). Never commit the key.
 fun cfg(name: String, default: String = ""): String =
     (localProps.getProperty(name) ?: project.findProperty(name) as String? ?: System.getenv(name) ?: default)
 
@@ -25,8 +25,10 @@ android {
         applicationId = "app.haven.companion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
+
+        buildConfigField("String", "GEMINI_API_KEY", "\"${cfg("HAVEN_GEMINI_API_KEY").trim()}\"")
     }
 
     sourceSets {
@@ -71,6 +73,11 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
+    }
+    androidResources {
+        // Sound recordings are read straight from the APK, so they must stay uncompressed.
+        noCompress += "ogg"
     }
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"

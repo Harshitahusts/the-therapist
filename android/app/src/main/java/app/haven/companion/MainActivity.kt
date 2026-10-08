@@ -74,7 +74,7 @@ private fun HavenApp(vm: AppViewModel) {
     when (screen) {
         Screen.Funnel -> FunnelScreen(
             resumeAtKey = vm.resumeAtKey,
-            hasKey = { !c.store.apiKey.isNullOrBlank() && !c.store.liveModel.isNullOrBlank() },
+            hasKey = { !c.store.apiKey.isNullOrBlank() },
             checkKey = { key -> c.connectGeminiKey(key) },
             onProfile = vm::saveProfile,
             onCheck = vm::saveCheck,

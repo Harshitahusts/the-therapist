@@ -66,3 +66,12 @@ quotations, each credited to its author and work. Classical texts (Epictetus,
 Seneca, Marcus Aurelius, Lao Tzu, Helen Keller) use public-domain wording;
 quotations from modern works are brief, attributed excerpts used for comment
 and reflection. No book text beyond these short quotations is included.
+
+## Sound recordings
+
+| File | Source | License | Notes |
+| --- | --- | --- | --- |
+| `android/app/src/main/assets/sounds/birds_ambience.ogg` | Mixkit, "Forest birds ambience" (#1210) | Mixkit Sound Effects Free License (free for personal and commercial projects, no attribution required; items may not be redistributed as standalone files or in sound packs) | Converted to mono 24 kHz, made into a seamless loop, normalised; used only inside the app's Birds soundscape |
+| `android/app/src/main/assets/sounds/birds_song.ogg` | Mixkit, "Forest birds singing" (#1212) | Mixkit Sound Effects Free License | Converted, normalised and faded; played at varying pitch and level within the Birds soundscape |
+
+All other soundscapes are synthesised in code.

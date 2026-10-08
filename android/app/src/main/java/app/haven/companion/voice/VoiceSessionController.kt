@@ -60,6 +60,8 @@ class VoiceSessionController(
     private val knowledge: () -> KnowledgeBase,
     private val gemini: GeminiApi,
     private val sound: SoundEngine,
+    /** Picks the Gemini models on first use; returns null when ready or a message for the user. */
+    private val ensureModels: suspend () -> String?,
 ) {
     private val _state = MutableStateFlow(VoiceUiState())
     val state: StateFlow<VoiceUiState> = _state
@@ -93,11 +95,15 @@ class VoiceSessionController(
         _state.value = VoiceUiState(phase = VoicePhase.CONNECTING, startedAt = System.currentTimeMillis())
         scope.launch {
             val key = store.apiKey
-            val model = store.liveModel
-            if (key.isNullOrBlank() || model.isNullOrBlank()) {
-                fail("Add your Gemini API key in Settings to start talking.")
+            if (key.isNullOrBlank()) {
+                fail("Haven's voice isn't set up in this build.")
                 return@launch
             }
+            ensureModels()?.let { problem ->
+                fail(problem)
+                return@launch
+            }
+            val model = store.liveModel!!
             try {
                 val zone = runCatching { ZoneId.of(repo.data.profile.timezone) }.getOrDefault(ZoneId.systemDefault())
                 liveModel = model
@@ -202,6 +208,19 @@ class VoiceSessionController(
             triedVoiceFallback = true
             voiceInUse = Voices.CLASSIC_FALLBACK
             Log.i(TAG, "voice not accepted (code $code); retrying with a classic voice")
+            coordinator = LiveCoordinator(liveModel, instructions, voiceInUse)
+            socket = null
+            store.apiKey?.let { open(it) } ?: fail(NETWORK_ERROR)
+            return
+        }
+        // The model itself wouldn't start: move on to the next best live model and remember it.
+        val nextModel = store.liveFallbacks.firstOrNull()
+        if (!c.setupDone && nextModel != null) {
+            Log.i(TAG, "live model $liveModel did not start (code $code); trying $nextModel")
+            store.liveFallbacks = store.liveFallbacks.drop(1)
+            store.liveModel = nextModel
+            liveModel = nextModel
+            triedVoiceFallback = voiceInUse in Voices.CLASSIC
             coordinator = LiveCoordinator(liveModel, instructions, voiceInUse)
             socket = null
             store.apiKey?.let { open(it) } ?: fail(NETWORK_ERROR)

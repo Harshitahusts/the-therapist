@@ -45,7 +45,8 @@ abstract class Soundscape(protected val sampleRate: Float, seed: Int) {
         fun create(id: SoundId, sampleRate: Float, seed: Int = id.ordinal * 7919 + 17): Soundscape = when (id) {
             SoundId.AIR -> Air(sampleRate, seed)
             SoundId.RAIN -> Rain(sampleRate, seed)
-            SoundId.BIRDS -> Birds(sampleRate, seed)
+            SoundId.BIRDS -> SampleBank.birdsAmbience?.let { RecordedBirds(sampleRate, seed, it, SampleBank.birdsSong) }
+                ?: Birds(sampleRate, seed)
             SoundId.RIVER -> River(sampleRate, seed)
             SoundId.BONFIRE -> Bonfire(sampleRate, seed)
             SoundId.FRESH -> Fresh(sampleRate, seed)
