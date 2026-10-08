@@ -10,7 +10,7 @@ class KnowledgeTest {
     @Test
     fun everySourceHasLicenceAndIsListedInLicensesMd() {
         val licenses = repoFile("LICENSES.md").readText()
-        assertEquals(12, kb.documents.size)
+        assertEquals(13, kb.documents.size)
         kb.documents.forEach { d ->
             assertTrue(d.meta["license"]!!.isNotBlank())
             assertTrue(d.meta["redistribution_allowed"] in setOf("true", "false"))

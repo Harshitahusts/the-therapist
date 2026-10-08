@@ -31,6 +31,12 @@ free Gemini API key.
    (Air, Rain, Birds, River, Bonfire, Fresh) that play softly under the
    conversation and dip while Haven speaks. Haven's voice has a very light echo.
 
+Haven speaks slowly and softly in a calm voice you can choose in Settings
+(twelve gentle Gemini voices, each with a preview). Now and then, when it fits,
+it shares a short, verified quotation (Seneca, Frankl, Carl Rogers, Thich Nhat
+Hanh, Brené Brown and others, always credited), and it can draw on the key
+ideas of well-known wellbeing books summarised in `knowledge/sources`.
+
 Sign-in with Google will be added before any public release.
 
 ## How it works
@@ -70,7 +76,7 @@ Sign-in with Google will be added before any public release.
 - **Soundscapes are synthesised on the phone** (no recordings, no downloads)
   and mixed with the companion's voice into one audio stream, so the phone's
   echo canceller keeps them out of the microphone.
-- **RAG without the cloud.** Twelve original CC BY 4.0 psychoeducation
+- **RAG without the cloud.** Thirteen original CC BY 4.0 psychoeducation
   documents (`knowledge/sources`) ship inside the APK and are searched with
   BM25 when the companion wants grounded material.
 
@@ -113,7 +119,7 @@ cd android
 
 ## Status and limitations
 
-- The core logic has 56 JVM unit tests (including all 57 safety cases). The app
+- The core logic has 64 JVM unit tests (including all 57 safety cases). The app
   is built in CI; voice has not yet been tried on a real device, so expect
   some tuning (echo on loudspeaker in particular; headphones are best).
 - Gemini's free-tier limits are set per Google project and can change; if you

@@ -61,6 +61,7 @@ class AppContainer(app: Application) {
             store.apiKey = key.trim()
             store.liveModel = live
             store.textModel = GeminiApi.chooseTextModel(models)
+            store.ttsModel = GeminiApi.chooseTtsModel(models)
             null
         } catch (e: GeminiException) {
             e.message

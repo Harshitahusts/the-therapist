@@ -12,6 +12,7 @@ import app.haven.companion.core.RiskLevel
 import app.haven.companion.core.Safety
 import app.haven.companion.core.Summarizer
 import app.haven.companion.core.Tools
+import app.haven.companion.core.Voices
 import app.haven.companion.core.VoicePhase
 import app.haven.companion.data.SecureStore
 import kotlinx.coroutines.CoroutineScope
@@ -79,6 +80,10 @@ class VoiceSessionController(
     private var audio: AudioRouting? = null
     private var conversationId: String? = null
     private var reconnects = 0
+    private var liveModel = ""
+    private var instructions = ""
+    private var voiceInUse = Voices.DEFAULT
+    private var triedVoiceFallback = false
     private var maxLengthTimer: Job? = null
 
     val isActive: Boolean get() = _state.value.phase !in setOf(VoicePhase.IDLE, VoicePhase.ERROR)
@@ -95,7 +100,11 @@ class VoiceSessionController(
             }
             try {
                 val zone = runCatching { ZoneId.of(repo.data.profile.timezone) }.getOrDefault(ZoneId.systemDefault())
-                coordinator = LiveCoordinator(model, LiveCoordinator.buildInstructions(repo.data, ZonedDateTime.now(zone)))
+                liveModel = model
+                instructions = LiveCoordinator.buildInstructions(repo.data, ZonedDateTime.now(zone))
+                voiceInUse = Voices.find(store.voice).name
+                triedVoiceFallback = false
+                coordinator = LiveCoordinator(model, instructions, voiceInUse)
                 conversationId = repo.startConversation().id
                 reconnects = 0
                 audio = AudioRouting(context).also { it.start() }
@@ -188,6 +197,16 @@ class VoiceSessionController(
 
     private suspend fun connectionLost(code: Int, reason: String) {
         val c = coordinator ?: return
+        // Older Live models only know the classic voices: retry once with one of those.
+        if (!c.setupDone && voiceInUse !in Voices.CLASSIC && !triedVoiceFallback) {
+            triedVoiceFallback = true
+            voiceInUse = Voices.CLASSIC_FALLBACK
+            Log.i(TAG, "voice not accepted (code $code); retrying with a classic voice")
+            coordinator = LiveCoordinator(liveModel, instructions, voiceInUse)
+            socket = null
+            store.apiKey?.let { open(it) } ?: fail(NETWORK_ERROR)
+            return
+        }
         // Gemini rotates connections; resume the same session when we can.
         if (c.resumeHandle != null && reconnects < MAX_RECONNECTS && code != 1007 && code != 1008) {
             reconnects++

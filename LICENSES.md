@@ -36,6 +36,7 @@ have the right to use is included; copyrighted books are **not** included.
 | `behavioural-activation.md` | Behavioural activation | Haven project contributors (original writing) | CC BY 4.0 | This repository | Yes |
 | `cbt-thinking-patterns.md` | Thinking patterns (CBT) | Haven project contributors (original writing) | CC BY 4.0 | This repository | Yes |
 | `grounding-and-breathing.md` | Grounding and breathing for anxiety and panic | Haven project contributors (original writing) | CC BY 4.0 | This repository | Yes |
+| `ideas-from-wellbeing-books.md` | Key ideas from well-known wellbeing books | Haven project contributors (original writing) | CC BY 4.0 | This repository | Yes |
 | `loneliness-and-connection.md` | Loneliness and connection | Haven project contributors (original writing) | CC BY 4.0 | This repository | Yes |
 | `motivational-interviewing.md` | Motivational interviewing ideas | Haven project contributors (original writing) | CC BY 4.0 | This repository | Yes |
 | `self-compassion.md` | Self-compassion | Haven project contributors (original writing) | CC BY 4.0 | This repository | Yes |
@@ -46,7 +47,8 @@ have the right to use is included; copyrighted books are **not** included.
 | `work-stress-and-impostor-feelings.md` | Work stress and impostor feelings | Haven project contributors (original writing) | CC BY 4.0 | This repository | Yes |
 
 These are original plain-language summaries of widely taught, evidence-based
-ideas (CBT, ACT, behavioural activation, motivational interviewing,
+ideas (and, in `ideas-from-wellbeing-books.md`, of the main ideas of named books,
+in our own words) (CBT, ACT, behavioural activation, motivational interviewing,
 solution-focused approaches, mindfulness and self-compassion). They do not
 reproduce text from any book.
 
@@ -56,3 +58,11 @@ Add only public-domain, openly licensed (e.g. CC BY, CC BY-SA, CC0) or
 explicitly permitted material, record its licence in the file's front matter
 and in this table, and keep anything that may not be redistributed out of
 this public repository. See `knowledge/README.md`.
+
+## Quotations
+
+`android/app/src/main/java/app/haven/companion/core/Quotes.kt` holds 18 short
+quotations, each credited to its author and work. Classical texts (Epictetus,
+Seneca, Marcus Aurelius, Lao Tzu, Helen Keller) use public-domain wording;
+quotations from modern works are brief, attributed excerpts used for comment
+and reflection. No book text beyond these short quotations is included.

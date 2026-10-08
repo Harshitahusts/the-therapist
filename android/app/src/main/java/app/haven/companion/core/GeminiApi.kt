@@ -3,6 +3,7 @@ package app.haven.companion.core
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
@@ -89,7 +90,47 @@ class GeminiApi(
         }
     }
 
+    /**
+     * Speaks [text] with a prebuilt [voice] using a Gemini text-to-speech model (for voice previews).
+     * Returns 24 kHz, 16-bit little-endian mono PCM.
+     */
+    fun speak(model: String, voice: String, text: String): ByteArray {
+        val payload = buildJsonObject {
+            put("contents", buildJsonArray {
+                add(buildJsonObject { put("parts", buildJsonArray { add(buildJsonObject { put("text", text) }) }) })
+            })
+            put("generationConfig", buildJsonObject {
+                put("responseModalities", buildJsonArray { add(JsonPrimitive("AUDIO")) })
+                put("speechConfig", buildJsonObject {
+                    put("voiceConfig", buildJsonObject {
+                        put("prebuiltVoiceConfig", buildJsonObject { put("voiceName", voice) })
+                    })
+                })
+            })
+        }
+        val body = execute(
+            Request.Builder()
+                .url("$baseUrl/models/$model:generateContent")
+                .header("x-goog-api-key", key())
+                .post(AppJson.encodeToString(payload).toRequestBody("application/json".toMediaType()))
+                .build()
+        )
+        return try {
+            val data = AppJson.parseToJsonElement(body).jsonObject["candidates"]!!.jsonArray[0].jsonObject["content"]!!
+                .jsonObject["parts"]!!.jsonArray[0].jsonObject["inlineData"]!!.jsonObject["data"]!!.jsonPrimitive.content
+            java.util.Base64.getDecoder().decode(data)
+        } catch (e: Exception) {
+            throw GeminiException(502, "The voice preview didn't come back.")
+        }
+    }
+
     companion object {
+        /** A text-to-speech model, for voice previews (optional). */
+        fun chooseTtsModel(models: List<GeminiModel>): String? =
+            models.filter { "tts" in it.id && "generateContent" in it.supportedGenerationMethods }
+                .sortedWith(compareByDescending<GeminiModel> { "flash" in it.id }.thenByDescending { it.id })
+                .firstOrNull()?.id
+
         fun describeError(code: Int, body: String): String = when {
             code == 400 && body.contains("API_KEY_INVALID") -> "That Gemini API key isn't valid."
             code == 403 -> "This Gemini API key isn't allowed to use the Gemini API."
